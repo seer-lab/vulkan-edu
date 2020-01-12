@@ -35,5 +35,8 @@
     <ClInclude Include="..\base\cube_data.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LHVulkan.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
