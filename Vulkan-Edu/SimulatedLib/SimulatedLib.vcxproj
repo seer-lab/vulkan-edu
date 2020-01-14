@@ -149,6 +149,7 @@
     <ClInclude Include="..\base\AGVulkan.h" />
     <ClInclude Include="..\base\cube_data.h" />
     <ClInclude Include="LHVulkan.h" />
+    <ClInclude Include="Window_Factory.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -38,5 +38,8 @@
     <ClInclude Include="LHVulkan.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Window_Factory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
