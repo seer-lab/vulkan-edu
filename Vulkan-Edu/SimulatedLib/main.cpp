@@ -9,4 +9,5 @@ int main() {
 	res = createInstance();
 	res = createDeviceInfo();
 	res = createWindowContext(1920, 1080);
+	init_swapchain();
 }

@@ -1,4 +1,5 @@
 #include <vulkan/vulkan.h>
+#include <iostream>
 
 #if _WIN32
 #include <Windows.h>
@@ -30,13 +31,19 @@
 #define EXTENSION_COUNT 2
 #define EXTENSION_NAMES VK_KHR_SURFACE_EXTENSION_NAME | VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 
-
 //Global Variable
 VkInstance instanceCreate;
 std::string name;
 uint32_t queue_family_count;
+uint32_t graphics_queue_family_index;
+uint32_t present_queue_family_index;
 VkPhysicalDeviceMemoryProperties memory_properties;
 VkPhysicalDeviceProperties gpu_props;
+VkSurfaceKHR surface;
+VkFormat format;
+
+std::vector<VkPhysicalDevice> gpus;
+std::vector<VkQueueFamilyProperties> queue_props;
 
 //TODO MAKE MULTIPLATFORM (Surface Creation)
 HINSTANCE connection;
@@ -90,7 +97,6 @@ VkResult createDeviceInfo() {
 	VkResult res = vkEnumeratePhysicalDevices(instanceCreate, &gpu_count, NULL);
 	assert(gpu_count);
 
-	std::vector<VkPhysicalDevice> gpus;
 	gpus.resize(gpu_count);
 
 	res = vkEnumeratePhysicalDevices(instanceCreate, &gpu_count, gpus.data());
@@ -100,7 +106,6 @@ VkResult createDeviceInfo() {
 		&queue_family_count, NULL);
 	assert(queue_family_count >= 1);
 
-	std::vector<VkQueueFamilyProperties> queue_props;
 	queue_props.resize(queue_family_count);
 
 	vkGetPhysicalDeviceQueueFamilyProperties(
@@ -186,4 +191,96 @@ static VkResult createWindowContext(int width = 1280, int height = 720) {
 	SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)NULL);
 }
 
+
+void init_swapchain() {
+	VkResult U_ASSERT_ONLY res;
+
+	// Construct the surface description:
+#ifdef _WIN32
+	VkWin32SurfaceCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	createInfo.pNext = NULL;
+	createInfo.hinstance = connection;
+	createInfo.hwnd = window;
+	res = vkCreateWin32SurfaceKHR(instanceCreate, &createInfo,
+		NULL, &surface);
+#else  // !__ANDROID__ && !_WIN32
+	VkXcbSurfaceCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+	createInfo.pNext = NULL;
+	createInfo.connection = connection;
+	createInfo.window = window;
+	res = vkCreateXcbSurfaceKHR(instanceCreate, &createInfo,
+		NULL, surface);
+#endif // __ANDROID__  && _WIN32
+
+	assert(res == VK_SUCCESS);
+
+	// Iterate over each queue to learn whether it supports presenting:
+	VkBool32* pSupportsPresent =
+		(VkBool32*)malloc(queue_family_count * sizeof(VkBool32));
+	for (uint32_t i = 0; i < queue_family_count; i++) {
+		vkGetPhysicalDeviceSurfaceSupportKHR(gpus[0], i, surface,
+			&pSupportsPresent[i]);
+	}
+
+	// Search for a graphics and a present queue in the array of queue
+	// families, try to find one that supports both
+	graphics_queue_family_index = UINT32_MAX;
+	present_queue_family_index = UINT32_MAX;
+	for (uint32_t i = 0; i < queue_family_count; ++i) {
+		if ((queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+			if (graphics_queue_family_index == UINT32_MAX)
+				graphics_queue_family_index = i;
+
+			if (pSupportsPresent[i] == VK_TRUE) {
+				graphics_queue_family_index = i;
+				present_queue_family_index = i;
+				break;
+			}
+		}
+	}
+
+	if (present_queue_family_index == UINT32_MAX) {
+		// If didn't find a queue that supports both graphics and present, then
+		// find a separate present queue.
+		for (size_t i = 0; i < queue_family_count; ++i)
+			if (pSupportsPresent[i] == VK_TRUE) {
+				present_queue_family_index = i;
+				break;
+			}
+	}
+	free(pSupportsPresent);
+
+	// Generate error if could not find queues that support graphics
+	// and present
+	if (graphics_queue_family_index == UINT32_MAX ||
+		present_queue_family_index == UINT32_MAX) {
+		std::cout << "Could not find a queues for both graphics and present";
+		exit(-1);
+	}
+
+	// Get the list of VkFormats that are supported:
+	uint32_t formatCount;
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
+		&formatCount, NULL);
+	assert(res == VK_SUCCESS);
+	VkSurfaceFormatKHR* surfFormats =
+		(VkSurfaceFormatKHR*)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
+		&formatCount, surfFormats);
+	assert(res == VK_SUCCESS);
+	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
+	// the surface has no preferred format.  Otherwise, at least one
+	// supported format will be returned.
+	if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
+		format = VK_FORMAT_B8G8R8A8_UNORM;
+	}
+	else {
+		assert(formatCount >= 1);
+		format = surfFormats[0].format;
+	}
+	free(surfFormats);
+
+}
 
