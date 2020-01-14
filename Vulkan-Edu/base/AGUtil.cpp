@@ -41,7 +41,7 @@ samples utility functions
 
 using namespace std;
 
-int main(int argc, char **argv) { sample_main(argc, argv); }
+//int main(int argc, char **argv) { sample_main(argc, argv); }
 
 void extract_version(uint32_t version, uint32_t &major, uint32_t &minor,
 	uint32_t &patch) {

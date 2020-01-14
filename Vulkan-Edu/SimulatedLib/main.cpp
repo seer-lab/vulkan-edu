@@ -1,6 +1,11 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
-int main() {
+#include "LHVulkan.h"
 
+int main() {
+	VkResult res;
+
+	res = createInstance();
+	res = createDeviceInfo();
 }

@@ -1,6 +1,7 @@
 #include <vulkan/vulkan.h>
 
 #if _WIN32
+#include <Windows.h>
 #include <vulkan/vulkan_win32.h>
 #endif
 
@@ -13,6 +14,13 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
 
+#if defined(NDEBUG) && defined(__GNUC__)
+#define U_ASSERT_ONLY __attribute__((unused))
+#else
+#define U_ASSERT_ONLY
+#endif
+
+
 #define LAYER_COUNT 0
 #define LAYER_NAME NULL
 
@@ -24,6 +32,9 @@
 
 //Global Variable
 VkInstance instanceCreate;
+uint32_t queue_family_count;
+VkPhysicalDeviceMemoryProperties memory_properties;
+VkPhysicalDeviceProperties gpu_props;
 
 VkResult createInstance(std::string appName = "Sample App", std::string engineName = "Sample Engine") {
 	VkApplicationInfo app_info = {};
@@ -39,7 +50,7 @@ VkResult createInstance(std::string appName = "Sample App", std::string engineNa
 
 	extention_types.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(_WIN32)
-	extention_types.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+	extention_types.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #else
 	info.instance_extension_names.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
@@ -64,26 +75,31 @@ VkResult createDeviceInfo() {
 	std::vector<const char*> device_extention_types;
 	device_extention_types.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+	uint32_t gpu_count = 1U;
 	uint32_t const U_ASSERT_ONLY req_count = gpu_count;
-	VkResult res = vkEnumeratePhysicalDevices(info.inst, &gpu_count, NULL);
+	VkResult res = vkEnumeratePhysicalDevices(instanceCreate, &gpu_count, NULL);
 	assert(gpu_count);
-	info.gpus.resize(gpu_count);
 
-	res = vkEnumeratePhysicalDevices(info.inst, &gpu_count, info.gpus.data());
+	std::vector<VkPhysicalDevice> gpus;
+	gpus.resize(gpu_count);
+
+	res = vkEnumeratePhysicalDevices(instanceCreate, &gpu_count, gpus.data());
 	assert(!res && gpu_count >= req_count);
 
-	vkGetPhysicalDeviceQueueFamilyProperties(info.gpus[0],
-		&info.queue_family_count, NULL);
-	assert(info.queue_family_count >= 1);
+	vkGetPhysicalDeviceQueueFamilyProperties(gpus[0],
+		&queue_family_count, NULL);
+	assert(queue_family_count >= 1);
 
-	info.queue_props.resize(info.queue_family_count);
+	std::vector<VkQueueFamilyProperties> queue_props;
+	queue_props.resize(queue_family_count);
+
 	vkGetPhysicalDeviceQueueFamilyProperties(
-		info.gpus[0], &info.queue_family_count, info.queue_props.data());
-	assert(info.queue_family_count >= 1);
+		gpus[0], &queue_family_count, queue_props.data());
+	assert(queue_family_count >= 1);
 
 	/* This is as good a place as any to do this */
-	vkGetPhysicalDeviceMemoryProperties(info.gpus[0], &info.memory_properties);
-	vkGetPhysicalDeviceProperties(info.gpus[0], &info.gpu_props);
+	vkGetPhysicalDeviceMemoryProperties(gpus[0], &memory_properties);
+	vkGetPhysicalDeviceProperties(gpus[0], &gpu_props);
 
 	return res;
 }

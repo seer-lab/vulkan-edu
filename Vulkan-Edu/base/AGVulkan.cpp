@@ -169,7 +169,7 @@ void init_instance_extension_names(struct AGContext &info) {
 VkResult init_instance(struct AGContext &info,
 	char const *const app_short_name) {
 #ifdef _WIN32
-	strcpy(info.name,app_short_name);
+	strcpy_s(info.name,app_short_name);
 #endif
 	VkApplicationInfo app_info = {};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;

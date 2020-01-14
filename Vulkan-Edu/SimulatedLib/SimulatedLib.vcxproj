@@ -75,7 +75,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)include;$(VULKAN_SDK)\include;$(VULKAN_SDK)\third-party\include;$(VULKAN_SDK)\glslang;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)\lib;$(VULKAN_SDK)\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(VULKAN_SDK)\Third-Party\Bin;$(SolutionDir)\lib;$(VULKAN_SDK)\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
