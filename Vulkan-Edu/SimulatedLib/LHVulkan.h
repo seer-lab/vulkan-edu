@@ -1,3 +1,7 @@
+#ifndef VK_USE_PLATFORM_WIN32_KHR
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
+
 #include <vulkan/vulkan.h>
 #include <iostream>
 
@@ -12,45 +16,160 @@
 #include <vector>
 
 
-#ifndef VK_USE_PLATFORM_WIN32_KHR
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
-
 #if defined(NDEBUG) && defined(__GNUC__)
 #define U_ASSERT_ONLY __attribute__((unused))
 #else
 #define U_ASSERT_ONLY
 #endif
 
+typedef struct {
+	VkLayerProperties properties;
+	std::vector<VkExtensionProperties> extensions;
+} layer_properties;
+
+VkResult init_global_extension_propertiesT(layer_properties& layer_props);
+VkResult init_global_layer_properties();
+VkResult createInstance(std::string appName = "Sample App", std::string engineName = "Sample Engine");
+VkResult createDeviceInfo();
+VkResult createSwapChain();
+VkResult createDevice();
 
 #define LAYER_COUNT 0
 #define LAYER_NAME NULL
-
 
 //TODO Change this such that it can handle Multiplatform code
 #define EXTENSION_COUNT 2
 #define EXTENSION_NAMES VK_KHR_SURFACE_EXTENSION_NAME | VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 
 //Global Variable
-VkInstance instanceCreate;
+static VkInstance instanceCreate;
 std::string name;
 uint32_t queue_family_count;
 uint32_t graphics_queue_family_index;
 uint32_t present_queue_family_index;
 VkPhysicalDeviceMemoryProperties memory_properties;
 VkPhysicalDeviceProperties gpu_props;
+VkDevice device;
 VkSurfaceKHR surface;
 VkFormat format;
 
+std::vector<const char*> device_extension_names;
+std::vector<const char*> instance_layer_names;
+std::vector<const char*> instance_extension_names;
 std::vector<VkPhysicalDevice> gpus;
 std::vector<VkQueueFamilyProperties> queue_props;
+std::vector<layer_properties> instance_layer_properties;
 
 //TODO MAKE MULTIPLATFORM (Surface Creation)
-HINSTANCE connection;
-HWND window;
+static HINSTANCE connection;
+static HWND window;
+long info;
 
-VkResult createInstance(std::string appName = "Sample App", std::string engineName = "Sample Engine") {
+
+VkResult init_global_extension_propertiesT(layer_properties& layer_props) {
+	VkExtensionProperties* instance_extensions;
+	uint32_t instance_extension_count;
+	VkResult res;
+	char* layer_name = NULL;
+
+	layer_name = layer_props.properties.layerName;
+
+	do {
+		res = vkEnumerateInstanceExtensionProperties(
+			layer_name, &instance_extension_count, NULL);
+		if (res)
+			return res;
+
+		if (instance_extension_count == 0) {
+			return VK_SUCCESS;
+		}
+
+		layer_props.extensions.resize(instance_extension_count);
+		instance_extensions = layer_props.extensions.data();
+		res = vkEnumerateInstanceExtensionProperties(
+			layer_name, &instance_extension_count, instance_extensions);
+	} while (res == VK_INCOMPLETE);
+
+	return res;
+}
+//
+VkResult init_global_layer_properties() {
+	uint32_t instance_layer_count;
+	VkLayerProperties* vk_props = NULL;
+	VkResult res;
+	do {
+		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, NULL);
+		if (res)
+			return res;
+
+		if (instance_layer_count == 0) {
+			return VK_SUCCESS;
+		}
+
+		vk_props = (VkLayerProperties*)realloc(
+			vk_props, instance_layer_count * sizeof(VkLayerProperties));
+
+		res =
+			vkEnumerateInstanceLayerProperties(&instance_layer_count, vk_props);
+	} while (res == VK_INCOMPLETE);
+
+	/*
+	* Now gather the extension list for each instance layer.
+	*/
+	for (uint32_t i = 0; i < instance_layer_count; i++) {
+		layer_properties layer_props;
+		layer_props.properties = vk_props[i];
+		res = init_global_extension_propertiesT(layer_props);
+		if (res)
+			return res;
+		instance_layer_properties.push_back(layer_props);
+	}
+	free(vk_props);
+
+	return res;
+}
+//
+//VkResult init_device_extension_propertiesT(layer_properties& layer_props) {
+//	VkExtensionProperties* device_extensions;
+//	uint32_t device_extension_count;
+//	VkResult res;
+//	char* layer_name = NULL;
+//
+//	layer_name = layer_props.properties.layerName;
+//
+//	do {
+//		res = vkEnumerateDeviceExtensionProperties(
+//			gpus[0], layer_name, &device_extension_count, NULL);
+//		if (res)
+//			return res;
+//
+//		if (device_extension_count == 0) {
+//			return VK_SUCCESS;
+//		}
+//
+//		layer_props.extensions.resize(device_extension_count);
+//		device_extensions = layer_props.extensions.data();
+//		res = vkEnumerateDeviceExtensionProperties(gpus[0], layer_name,
+//			&device_extension_count,
+//			device_extensions);
+//	} while (res == VK_INCOMPLETE);
+//
+//	return res;
+//}
+
+VkResult createInstance(std::string appName, std::string engineName) {
 	name = appName;
+	
+	init_global_layer_properties();
+
+	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+#if defined(_WIN32)
+	instance_extension_names.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#else
+	instance_extension_names.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+#endif
+
+	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
 	VkApplicationInfo app_info = {};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -61,15 +180,6 @@ VkResult createInstance(std::string appName = "Sample App", std::string engineNa
 	app_info.engineVersion = 1;
 	app_info.apiVersion = VK_API_VERSION_1_0;
 
-	std::vector<const char*> extention_types;
-
-	extention_types.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-#if defined(_WIN32)
-	extention_types.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#else
-	info.instance_extension_names.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#endif
-
 	VkInstanceCreateInfo inst_info = {};
 	inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	inst_info.pNext = NULL;
@@ -77,10 +187,11 @@ VkResult createInstance(std::string appName = "Sample App", std::string engineNa
 	inst_info.pApplicationInfo = &app_info;
 	inst_info.enabledLayerCount = LAYER_COUNT;
 	inst_info.ppEnabledLayerNames = LAYER_NAME;
-	inst_info.enabledExtensionCount = extention_types.size();
-	inst_info.ppEnabledExtensionNames = extention_types.data();
+	inst_info.enabledExtensionCount = instance_layer_names.size();
+	inst_info.ppEnabledExtensionNames = instance_layer_names.data() ? instance_layer_names.data() : NULL;
 
-	VkResult res = vkCreateInstance(&inst_info, NULL, &instanceCreate);
+	VkResult res;
+	res = vkCreateInstance(&inst_info, NULL, &instanceCreate);
 	assert(res == VK_SUCCESS);
 
 	return res;
@@ -89,10 +200,8 @@ VkResult createInstance(std::string appName = "Sample App", std::string engineNa
 
 //TODO Make this function select anyother GPU for the user if the user chooses to do so
 VkResult createDeviceInfo() {
-	std::vector<const char*> device_extention_types;
-	device_extention_types.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
-	uint32_t gpu_count = 1U;
+	uint32_t gpu_count = 1;
 	uint32_t const U_ASSERT_ONLY req_count = gpu_count;
 	VkResult res = vkEnumeratePhysicalDevices(instanceCreate, &gpu_count, NULL);
 	assert(gpu_count);
@@ -137,7 +246,62 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
 }
 
-static VkResult createWindowContext(int width = 1280, int height = 720) {
+//static VkResult createWindowContext(int width = 1280, int height = 720) {
+//	WNDCLASSEX win_class;
+//	assert(width > 0);
+//	assert(height > 0);
+//
+//	connection = GetModuleHandle(NULL);
+//
+//	// Initialize the window class structure:
+//	win_class.cbSize = sizeof(WNDCLASSEX);
+//	win_class.style = CS_HREDRAW | CS_VREDRAW;
+//	win_class.lpfnWndProc = WndProc;
+//	win_class.cbClsExtra = 0;
+//	win_class.cbWndExtra = 0;
+//	win_class.hInstance = connection; // hInstance
+//	win_class.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+//	win_class.hCursor = LoadCursor(NULL, IDC_ARROW);
+//	win_class.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+//	win_class.lpszMenuName = NULL;
+//	wchar_t wname[256];
+//	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, name.c_str(), -1, wname, 256);
+//	win_class.lpszClassName = (LPCWSTR)wname;
+//	win_class.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
+//	// Register window class:
+//	if (!RegisterClassEx(&win_class)) {
+//		// It didn't work, so try to give a useful error:
+//		printf("Unexpected error trying to start the application!\n");
+//		fflush(stdout);
+//		exit(1);
+//	}
+//	// Create window with the registered class:
+//	RECT wr = { 0, 0, width, height };
+//	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+//	window = CreateWindowEx(0,
+//		(LPCWSTR)wname,            // class name
+//		(LPCWSTR)wname,            // app name
+//		WS_OVERLAPPEDWINDOW | // window style
+//		WS_VISIBLE | WS_SYSMENU,
+//		100, 100,           // x/y coords
+//		wr.right - wr.left, // width
+//		wr.bottom - wr.top, // height
+//		NULL,               // handle to parent
+//		NULL,               // handle to menu
+//		connection,    // hInstance
+//		NULL);              // no extra parameters
+//	if (!window) {
+//		// It didn't work, so try to give a useful error:
+//		printf("Cannot create a window in which to draw!\n");
+//		fflush(stdout);
+//		exit(1);
+//	}
+//	//Setting the last value might give an error
+//	SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)NULL);
+//}
+
+
+static void createWindowContext(int height, int width) {
 	WNDCLASSEX win_class;
 	assert(width > 0);
 	assert(height > 0);
@@ -156,7 +320,7 @@ static VkResult createWindowContext(int width = 1280, int height = 720) {
 	win_class.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
 	win_class.lpszMenuName = NULL;
 	wchar_t wname[256];
-	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, name.c_str() , -1, wname, 256);
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, name.c_str(), -1, wname, 256);
 	win_class.lpszClassName = (LPCWSTR)wname;
 	win_class.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
 	// Register window class:
@@ -187,100 +351,139 @@ static VkResult createWindowContext(int width = 1280, int height = 720) {
 		fflush(stdout);
 		exit(1);
 	}
-	//Setting the last value might give an error
-	SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)NULL);
+	SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)&info);
 }
 
-
-void init_swapchain() {
+VkResult createSwapChain() {
 	VkResult U_ASSERT_ONLY res;
 
-	// Construct the surface description:
-#ifdef _WIN32
 	VkWin32SurfaceCreateInfoKHR createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	createInfo.pNext = NULL;
 	createInfo.hinstance = connection;
 	createInfo.hwnd = window;
-	res = vkCreateWin32SurfaceKHR(instanceCreate, &createInfo,
-		NULL, &surface);
-#else  // !__ANDROID__ && !_WIN32
-	VkXcbSurfaceCreateInfoKHR createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
-	createInfo.pNext = NULL;
-	createInfo.connection = connection;
-	createInfo.window = window;
-	res = vkCreateXcbSurfaceKHR(instanceCreate, &createInfo,
-		NULL, surface);
-#endif // __ANDROID__  && _WIN32
 
+	res = vkCreateWin32SurfaceKHR(instanceCreate, &createInfo, NULL, &surface);
+	std::cout << res << "\n";
 	assert(res == VK_SUCCESS);
 
-	// Iterate over each queue to learn whether it supports presenting:
-	VkBool32* pSupportsPresent =
-		(VkBool32*)malloc(queue_family_count * sizeof(VkBool32));
-	for (uint32_t i = 0; i < queue_family_count; i++) {
-		vkGetPhysicalDeviceSurfaceSupportKHR(gpus[0], i, surface,
-			&pSupportsPresent[i]);
-	}
-
-	// Search for a graphics and a present queue in the array of queue
-	// families, try to find one that supports both
-	graphics_queue_family_index = UINT32_MAX;
-	present_queue_family_index = UINT32_MAX;
-	for (uint32_t i = 0; i < queue_family_count; ++i) {
-		if ((queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
-			if (graphics_queue_family_index == UINT32_MAX)
-				graphics_queue_family_index = i;
-
-			if (pSupportsPresent[i] == VK_TRUE) {
-				graphics_queue_family_index = i;
-				present_queue_family_index = i;
-				break;
-			}
-		}
-	}
-
-	if (present_queue_family_index == UINT32_MAX) {
-		// If didn't find a queue that supports both graphics and present, then
-		// find a separate present queue.
-		for (size_t i = 0; i < queue_family_count; ++i)
-			if (pSupportsPresent[i] == VK_TRUE) {
-				present_queue_family_index = i;
-				break;
-			}
-	}
-	free(pSupportsPresent);
-
-	// Generate error if could not find queues that support graphics
-	// and present
-	if (graphics_queue_family_index == UINT32_MAX ||
-		present_queue_family_index == UINT32_MAX) {
-		std::cout << "Could not find a queues for both graphics and present";
-		exit(-1);
-	}
-
-	// Get the list of VkFormats that are supported:
-	uint32_t formatCount;
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
-		&formatCount, NULL);
-	assert(res == VK_SUCCESS);
-	VkSurfaceFormatKHR* surfFormats =
-		(VkSurfaceFormatKHR*)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
-		&formatCount, surfFormats);
-	assert(res == VK_SUCCESS);
-	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
-	// the surface has no preferred format.  Otherwise, at least one
-	// supported format will be returned.
-	if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
-		format = VK_FORMAT_B8G8R8A8_UNORM;
-	}
-	else {
-		assert(formatCount >= 1);
-		format = surfFormats[0].format;
-	}
-	free(surfFormats);
-
+//	init_global_layer_properties();
+//	VkResult U_ASSERT_ONLY res;
+//
+//	// Construct the surface description:
+//#ifdef _WIN32
+//	VkWin32SurfaceCreateInfoKHR createInfo = {};
+//	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+//	createInfo.pNext = NULL;
+//	createInfo.hinstance = connection;
+//	createInfo.hwnd = window;
+//	res = vkCreateWin32SurfaceKHR(instanceCreate, &createInfo,
+//		NULL, &surface);
+//#else  // !__ANDROID__ && !_WIN32
+//	VkXcbSurfaceCreateInfoKHR createInfo = {};
+//	createInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+//	createInfo.pNext = NULL;
+//	createInfo.connection = info.connection;
+//	createInfo.window = info.window;
+//	res = vkCreateXcbSurfaceKHR(info.inst, &createInfo,
+//		NULL, &info.surface);
+//#endif // __ANDROID__  && _WIN32
+//	assert(res == VK_SUCCESS);
+//
+//	// Iterate over each queue to learn whether it supports presenting:
+//	VkBool32* pSupportsPresent =
+//		(VkBool32*)malloc(queue_family_count * sizeof(VkBool32));
+//	for (uint32_t i = 0; i < queue_family_count; i++) {
+//		vkGetPhysicalDeviceSurfaceSupportKHR(gpus[0], i, surface,
+//			&pSupportsPresent[i]);
+//	}
+//
+//	// Search for a graphics and a present queue in the array of queue
+//	// families, try to find one that supports both
+//	graphics_queue_family_index = UINT32_MAX;
+//	present_queue_family_index = UINT32_MAX;
+//	for (uint32_t i = 0; i < queue_family_count; ++i) {
+//		if ((queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+//			if (graphics_queue_family_index == UINT32_MAX)
+//				graphics_queue_family_index = i;
+//
+//			if (pSupportsPresent[i] == VK_TRUE) {
+//				graphics_queue_family_index = i;
+//				present_queue_family_index = i;
+//				break;
+//			}
+//		}
+//	}
+//
+//	if (present_queue_family_index == UINT32_MAX) {
+//		// If didn't find a queue that supports both graphics and present, then
+//		// find a separate present queue.
+//		for (size_t i = 0; i < queue_family_count; ++i)
+//			if (pSupportsPresent[i] == VK_TRUE) {
+//				present_queue_family_index = i;
+//				break;
+//			}
+//	}
+//	free(pSupportsPresent);
+//
+//	// Generate error if could not find queues that support graphics
+//	// and present
+//	if (graphics_queue_family_index == UINT32_MAX ||
+//		present_queue_family_index == UINT32_MAX) {
+//		std::cout << "Could not find a queues for both graphics and present";
+//		exit(-1);
+//	}
+//
+//	// Get the list of VkFormats that are supported:
+//	uint32_t formatCount;
+//	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
+//		&formatCount, NULL);
+//	assert(res == VK_SUCCESS);
+//	VkSurfaceFormatKHR* surfFormats =
+//		(VkSurfaceFormatKHR*)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
+//	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
+//		&formatCount, surfFormats);
+//	assert(res == VK_SUCCESS);
+//	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
+//	// the surface has no preferred format.  Otherwise, at least one
+//	// supported format will be returned.
+//	if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
+//		format = VK_FORMAT_B8G8R8A8_UNORM;
+//	}
+//	else {
+//		assert(formatCount >= 1);
+//		format = surfFormats[0].format;
+//	}
+//	free(surfFormats);
+//
+	return res;
 }
 
+VkResult createDevice() {
+	VkResult res;
+	VkDeviceQueueCreateInfo queue_info = {};
+
+	float queue_priorities[1] = { 0.0 };
+	queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queue_info.pNext = NULL;
+	queue_info.queueCount = 1;
+	queue_info.pQueuePriorities = queue_priorities;
+	queue_info.queueFamilyIndex = graphics_queue_family_index;
+
+	VkDeviceCreateInfo device_info = {};
+	device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	device_info.pNext = NULL;
+	device_info.queueCreateInfoCount = 1;
+	device_info.pQueueCreateInfos = &queue_info;
+	device_info.enabledExtensionCount = device_extension_names.size();
+	device_info.ppEnabledExtensionNames =
+		device_info.enabledExtensionCount ? device_extension_names.data()
+		: NULL;
+	device_info.pEnabledFeatures = NULL;
+
+	res = vkCreateDevice(gpus[0], &device_info, NULL, &device);
+	std::cout << res << "\n";
+	assert(res == VK_SUCCESS);
+
+	return res;
+}

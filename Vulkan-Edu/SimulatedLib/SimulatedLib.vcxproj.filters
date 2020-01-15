@@ -21,17 +21,8 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\base\AGVulkan.cpp">
-      <Filter>Other Source File</Filter>
-    </ClCompile>
-    <ClCompile Include="..\base\AGUtil.cpp">
-      <Filter>Other Source File</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\base\AGVulkan.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\base\cube_data.h">
       <Filter>Header Files</Filter>
     </ClInclude>
