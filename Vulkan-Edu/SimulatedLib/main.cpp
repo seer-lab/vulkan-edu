@@ -5,9 +5,13 @@
 
 int main() {
 	VkResult res;
+	createInstance();
+	createDeviceInfo();
+	createWindowContext(512, 512);
+	createSwapChain();
 
-	res = createInstance();
-	res = createDeviceInfo();
-	createWindowContext(1280, 720);
-	res = createSwapChain();
+	//res = createInstance();
+	//res = createDeviceInfo();
+	//createWindowContext(1280, 720);
+	//res = createSwapChain();
 }
