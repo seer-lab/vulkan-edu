@@ -650,7 +650,7 @@ void createSwapChain(VkImageUsageFlags usageFlags) {
 	}
 }
 
-void init_depth_buffer(VkCommandBuffer cmd) {
+void createDepthBuffer(VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
 	VkImageCreateInfo image_info = {};
@@ -777,6 +777,165 @@ void init_depth_buffer(VkCommandBuffer cmd) {
 	res = vkCreateImageView(device, &view_info, NULL, &depths.view);
 	assert(res == VK_SUCCESS);
 }
+
+//void init_uniform_buffer(struct AGContext& info, struct AppState& state) {
+//	VkResult U_ASSERT_ONLY res;
+//	bool U_ASSERT_ONLY pass;
+//	float fov = glm::radians(45.0f);
+//	if (info.width > info.height) {
+//		fov *= static_cast<float>(info.height) / static_cast<float>(info.width);
+//	}
+//	state.Projection = glm::perspective(fov,
+//		static_cast<float>(info.width) /
+//		static_cast<float>(info.height), 0.1f, 100.0f);
+//	state.View = glm::lookAt(
+//		glm::vec3(-5, 3, -10),  // Camera is at (-5,3,-10), in World Space
+//		glm::vec3(0, 0, 0),  // and looks at the origin
+//		glm::vec3(0, -1, 0)   // Head is up (set to 0,-1,0 to look upside-down)
+//	);
+//	state.Model = glm::mat4(1.0f);
+//	// Vulkan clip space has inverted Y and half Z.
+//	state.Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+//		0.0f, -1.0f, 0.0f, 0.0f,
+//		0.0f, 0.0f, 0.5f, 0.0f,
+//		0.0f, 0.0f, 0.5f, 1.0f);
+//
+//	state.MVP = state.Clip * state.Projection * state.View * state.Model;
+//
+//	/* VULKAN_KEY_START */
+//	VkBufferCreateInfo buf_info = {};
+//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//	buf_info.pNext = NULL;
+//	buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+//	buf_info.size = sizeof(state.MVP);
+//	buf_info.queueFamilyIndexCount = 0;
+//	buf_info.pQueueFamilyIndices = NULL;
+//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//	buf_info.flags = 0;
+//	res = vkCreateBuffer(info.device, &buf_info, NULL, &state.uniform_data.buf);
+//	assert(res == VK_SUCCESS);
+//
+//	VkMemoryRequirements mem_reqs;
+//	vkGetBufferMemoryRequirements(info.device, state.uniform_data.buf,
+//		&mem_reqs);
+//
+//	VkMemoryAllocateInfo alloc_info = {};
+//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+//	alloc_info.pNext = NULL;
+//	alloc_info.memoryTypeIndex = 0;
+//
+//	alloc_info.allocationSize = mem_reqs.size;
+//	pass = memory_type_from_properties(info, mem_reqs.memoryTypeBits,
+//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+//		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//		&alloc_info.memoryTypeIndex);
+//	assert(pass && "No mappable, coherent memory");
+//
+//	res = vkAllocateMemory(info.device, &alloc_info, NULL,
+//		&(state.uniform_data.mem));
+//	assert(res == VK_SUCCESS);
+//
+//	uint8_t* pData;
+//	res = vkMapMemory(info.device, state.uniform_data.mem, 0, mem_reqs.size, 0,
+//		(void**)&pData);
+//	assert(res == VK_SUCCESS);
+//
+//	memcpy(pData, &state.MVP, sizeof(state.MVP));
+//
+//	vkUnmapMemory(info.device, state.uniform_data.mem);
+//
+//	res = vkBindBufferMemory(info.device, state.uniform_data.buf,
+//		state.uniform_data.mem, 0);
+//	assert(res == VK_SUCCESS);
+//
+//	state.uniform_data.buffer_info.buffer = state.uniform_data.buf;
+//	state.uniform_data.buffer_info.offset = 0;
+//	state.uniform_data.buffer_info.range = sizeof(state.MVP);
+//
+//	glm::vec4 lightPos = glm::vec4(0.0, 1.0, 0.0, 1.0);
+//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//	buf_info.pNext = NULL;
+//	buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+//	buf_info.size = sizeof(lightPos);
+//	buf_info.queueFamilyIndexCount = 0;
+//	buf_info.pQueueFamilyIndices = NULL;
+//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//	buf_info.flags = 0;
+//
+//	res = vkCreateBuffer(info.device, &buf_info, NULL,
+//		&frag_uniform.buf);
+//	assert(res == VK_SUCCESS);
+//	vkGetBufferMemoryRequirements(info.device, frag_uniform.buf,
+//		&mem_reqs);
+//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+//	alloc_info.pNext = NULL;
+//	alloc_info.memoryTypeIndex = 0;
+//	alloc_info.allocationSize = mem_reqs.size;
+//	pass = memory_type_from_properties(info, mem_reqs.memoryTypeBits,
+//
+//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+//
+//		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//		&alloc_info.memoryTypeIndex);
+//	assert(pass && "No mappable, coherent memory");
+//	res = vkAllocateMemory(info.device, &alloc_info, NULL,
+//		&(frag_uniform.mem));
+//	assert(res == VK_SUCCESS);
+//	res = vkMapMemory(info.device, frag_uniform.mem, 0, mem_reqs.size,
+//		0,
+//		(void**)&pData);
+//	assert(res == VK_SUCCESS);
+//	memcpy(pData, &lightPos, sizeof(lightPos));
+//	vkUnmapMemory(info.device, frag_uniform.mem);
+//	res = vkBindBufferMemory(info.device, frag_uniform.buf,
+//		frag_uniform.mem, 0);
+//	assert(res == VK_SUCCESS);
+//	frag_uniform.buffer_info.buffer = frag_uniform.buf;
+//	frag_uniform.buffer_info.offset = 0;
+//	frag_uniform.buffer_info.range = sizeof(lightPos);
+//	frag_uniform.mem_size = mem_reqs.size;
+//
+//	//*************************************************
+//
+//	glm::vec4 colour = glm::vec4(1.0, 1.0, 0.0, 1.0);
+//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//	buf_info.pNext = NULL;
+//	buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+//	buf_info.size = sizeof(colour);
+//	buf_info.queueFamilyIndexCount = 0;
+//	buf_info.pQueueFamilyIndices = NULL;
+//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//	buf_info.flags = 0;
+//
+//	res = vkCreateBuffer(info.device, &buf_info, NULL, &frag_uniform.buf);
+//	assert(res == VK_SUCCESS);
+//	vkGetBufferMemoryRequirements(info.device, frag_uniform.buf, &mem_reqs);
+//
+//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+//	alloc_info.pNext = NULL;
+//	alloc_info.memoryTypeIndex = 0;
+//	alloc_info.allocationSize = mem_reqs.size;
+//	pass = memory_type_from_properties(info, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//		&alloc_info.memoryTypeIndex);
+//
+//	assert(pass && "No mappable, coherent memory");
+//
+//	res = vkAllocateMemory(info.device, &alloc_info, NULL, &(frag_uniform.mem));
+//	assert(res == VK_SUCCESS);
+//	res = vkMapMemory(info.device, frag_uniform.mem, 0, mem_reqs.size, 0, (void**)&pData);
+//	assert(res == VK_SUCCESS);
+//	memcpy(pData, &colour, sizeof(colour));
+//	vkUnmapMemory(info.device, frag_uniform.mem);
+//	res = vkBindBufferMemory(info.device, frag_uniform.buf,
+//		frag_uniform.mem, 0);
+//	assert(res == VK_SUCCESS);
+//	frag_uniform.buffer_info.buffer = frag_uniform.buf;
+//	frag_uniform.buffer_info.offset = 0;
+//	frag_uniform.buffer_info.range = sizeof(colour);
+//	frag_uniform.mem_size = mem_reqs.size;
+//
+//}
+
 void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkCommandBuffer cmd) {
 	/* DEPENDS on info.cmd and info.queue initialized */
 

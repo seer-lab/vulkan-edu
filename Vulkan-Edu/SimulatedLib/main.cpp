@@ -16,5 +16,7 @@ int main() {
 	res = createCommandBuffer(cmdbuffer);
 	res = execute_begin_command_buffer(cmdbuffer);
 	createDeviceQueue();
+	createSwapChain(17);
+	createDepthBuffer(cmdbuffer);
 
 }
