@@ -51,9 +51,12 @@ uint32_t graphics_queue_family_index;
 uint32_t present_queue_family_index;
 VkPhysicalDeviceMemoryProperties memory_properties;
 VkPhysicalDeviceProperties gpu_props;
+VkCommandPool cmdpool;
 VkDevice device;
 VkSurfaceKHR surface;
 VkFormat format;
+VkQueue graphics_queue;
+VkQueue present_queue;
 
 std::vector<const char*> device_extension_names;
 std::vector<const char*> instance_layer_names;
@@ -280,7 +283,7 @@ static void createWindowContext(int height, int width) {
 	SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)&info);
 }
 
-VkResult createSwapChain() {
+VkResult createSwapChainExtention() {
 	VkResult U_ASSERT_ONLY res;
 
 	// Construct the surface description:
@@ -302,99 +305,164 @@ VkResult createSwapChain() {
 #endif // __ANDROID__  && _WIN32
 	assert(res == VK_SUCCESS);
 
-	//// Iterate over each queue to learn whether it supports presenting:
-	//VkBool32* pSupportsPresent =
-	//	(VkBool32*)malloc(info.queue_family_count * sizeof(VkBool32));
-	//for (uint32_t i = 0; i < info.queue_family_count; i++) {
-	//	vkGetPhysicalDeviceSurfaceSupportKHR(info.gpus[0], i, info.surface,
-	//		&pSupportsPresent[i]);
-	//}
+	// Iterate over each queue to learn whether it supports presenting:
+	VkBool32* pSupportsPresent =
+		(VkBool32*)malloc(queue_family_count * sizeof(VkBool32));
+	for (uint32_t i = 0; i < queue_family_count; i++) {
+		vkGetPhysicalDeviceSurfaceSupportKHR(gpus[0], i, surface,
+			&pSupportsPresent[i]);
+	}
 
-	//// Search for a graphics and a present queue in the array of queue
-	//// families, try to find one that supports both
-	//info.graphics_queue_family_index = UINT32_MAX;
-	//info.present_queue_family_index = UINT32_MAX;
-	//for (uint32_t i = 0; i < info.queue_family_count; ++i) {
-	//	if ((info.queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
-	//		if (info.graphics_queue_family_index == UINT32_MAX)
-	//			info.graphics_queue_family_index = i;
+	// Search for a graphics and a present queue in the array of queue
+	// families, try to find one that supports both
+	graphics_queue_family_index = UINT32_MAX;
+	present_queue_family_index = UINT32_MAX;
+	for (uint32_t i = 0; i < queue_family_count; ++i) {
+		if ((queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+			if (graphics_queue_family_index == UINT32_MAX)
+				graphics_queue_family_index = i;
 
-	//		if (pSupportsPresent[i] == VK_TRUE) {
-	//			info.graphics_queue_family_index = i;
-	//			info.present_queue_family_index = i;
-	//			break;
-	//		}
-	//	}
-	//}
+			if (pSupportsPresent[i] == VK_TRUE) {
+				graphics_queue_family_index = i;
+				present_queue_family_index = i;
+				break;
+			}
+		}
+	}
 
-	//if (info.present_queue_family_index == UINT32_MAX) {
-	//	// If didn't find a queue that supports both graphics and present, then
-	//	// find a separate present queue.
-	//	for (size_t i = 0; i < info.queue_family_count; ++i)
-	//		if (pSupportsPresent[i] == VK_TRUE) {
-	//			info.present_queue_family_index = i;
-	//			break;
-	//		}
-	//}
-	//free(pSupportsPresent);
+	if (present_queue_family_index == UINT32_MAX) {
+		// If didn't find a queue that supports both graphics and present, then
+		// find a separate present queue.
+		for (size_t i = 0; i < queue_family_count; ++i)
+			if (pSupportsPresent[i] == VK_TRUE) {
+				present_queue_family_index = i;
+				break;
+			}
+	}
+	free(pSupportsPresent);
 
-	//// Generate error if could not find queues that support graphics
-	//// and present
-	//if (info.graphics_queue_family_index == UINT32_MAX ||
-	//	info.present_queue_family_index == UINT32_MAX) {
-	//	std::cout << "Could not find a queues for both graphics and present";
-	//	exit(-1);
-	//}
+	// Generate error if could not find queues that support graphics
+	// and present
+	if (graphics_queue_family_index == UINT32_MAX ||
+		present_queue_family_index == UINT32_MAX) {
+		std::cout << "Could not find a queues for both graphics and present";
+		exit(-1);
+	}
 
-	//// Get the list of VkFormats that are supported:
-	//uint32_t formatCount;
-	//res = vkGetPhysicalDeviceSurfaceFormatsKHR(info.gpus[0], info.surface,
-	//	&formatCount, NULL);
-	//assert(res == VK_SUCCESS);
-	//VkSurfaceFormatKHR* surfFormats =
-	//	(VkSurfaceFormatKHR*)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
-	//res = vkGetPhysicalDeviceSurfaceFormatsKHR(info.gpus[0], info.surface,
-	//	&formatCount, surfFormats);
-	//assert(res == VK_SUCCESS);
-	//// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
-	//// the surface has no preferred format.  Otherwise, at least one
-	//// supported format will be returned.
-	//if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
-	//	info.format = VK_FORMAT_B8G8R8A8_UNORM;
-	//}
-	//else {
-	//	assert(formatCount >= 1);
-	//	info.format = surfFormats[0].format;
-	//}
-	//free(surfFormats);
+	// Get the list of VkFormats that are supported:
+	uint32_t formatCount;
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
+		&formatCount, NULL);
+	assert(res == VK_SUCCESS);
+	VkSurfaceFormatKHR* surfFormats =
+		(VkSurfaceFormatKHR*)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
+		&formatCount, surfFormats);
+	assert(res == VK_SUCCESS);
+	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
+	// the surface has no preferred format.  Otherwise, at least one
+	// supported format will be returned.
+	if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
+		format = VK_FORMAT_B8G8R8A8_UNORM;
+	}
+	else {
+		assert(formatCount >= 1);
+		format = surfFormats[0].format;
+	}
+	free(surfFormats);
 	return res;
 }
 
-//VkResult createDevice() {
-//	VkResult res;
-//	VkDeviceQueueCreateInfo queue_info = {};
-//
-//	float queue_priorities[1] = { 0.0 };
-//	queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-//	queue_info.pNext = NULL;
-//	queue_info.queueCount = 1;
-//	queue_info.pQueuePriorities = queue_priorities;
-//	queue_info.queueFamilyIndex = graphics_queue_family_index;
-//
-//	VkDeviceCreateInfo device_info = {};
-//	device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-//	device_info.pNext = NULL;
-//	device_info.queueCreateInfoCount = 1;
-//	device_info.pQueueCreateInfos = &queue_info;
-//	device_info.enabledExtensionCount = device_extension_names.size();
-//	device_info.ppEnabledExtensionNames =
-//		device_info.enabledExtensionCount ? device_extension_names.data()
-//		: NULL;
-//	device_info.pEnabledFeatures = NULL;
-//
-//	res = vkCreateDevice(gpus[0], &device_info, NULL, &device);
-//	std::cout << res << "\n";
-//	assert(res == VK_SUCCESS);
-//
-//	return res;
-//}
+VkResult createDevice() {
+	VkResult res;
+	VkDeviceQueueCreateInfo queue_info = {};
+
+	float queue_priorities[1] = { 0.0 };
+	queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queue_info.pNext = NULL;
+	queue_info.queueCount = 1;
+	queue_info.pQueuePriorities = queue_priorities;
+	queue_info.queueFamilyIndex = graphics_queue_family_index;
+
+	VkDeviceCreateInfo device_info = {};
+	device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	device_info.pNext = NULL;
+	device_info.queueCreateInfoCount = 1;
+	device_info.pQueueCreateInfos = &queue_info;
+	device_info.enabledExtensionCount = device_extension_names.size();
+	device_info.ppEnabledExtensionNames =
+	device_info.enabledExtensionCount ? device_extension_names.data()
+		: NULL;
+	device_info.pEnabledFeatures = NULL;
+
+	res = vkCreateDevice(gpus[0], &device_info, NULL, &device);
+	assert(res == VK_SUCCESS);
+
+	return res;
+}
+
+VkResult createCommandPool() {
+	VkResult U_ASSERT_ONLY res;
+
+	VkCommandPoolCreateInfo cmd_pool_info = {};
+	cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	cmd_pool_info.pNext = NULL;
+	cmd_pool_info.queueFamilyIndex = graphics_queue_family_index;
+	cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+	res = vkCreateCommandPool(device, &cmd_pool_info, NULL, &cmdpool);
+	assert(res == VK_SUCCESS);
+}
+
+VkResult createCommandBuffer(VkCommandBuffer& newCmd) {
+	/* DEPENDS on init_swapchain_extension() and init_command_pool() */
+	VkResult U_ASSERT_ONLY res;
+
+	VkCommandBufferAllocateInfo cmd = {};
+	cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmd.pNext = NULL;
+	cmd.commandPool = cmdpool;
+	cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmd.commandBufferCount = 1;
+
+	res = vkAllocateCommandBuffers(device, &cmd, &newCmd);
+	assert(res == VK_SUCCESS);
+	return res;
+}
+
+VkResult execute_begin_command_buffer(VkCommandBuffer cmd) {
+	/* DEPENDS on init_command_buffer() */
+	VkResult U_ASSERT_ONLY res;
+
+	VkCommandBufferBeginInfo cmd_buf_info = {};
+	cmd_buf_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmd_buf_info.pNext = NULL;
+	cmd_buf_info.flags = 0;
+	cmd_buf_info.pInheritanceInfo = NULL;
+
+	res = vkBeginCommandBuffer(cmd, &cmd_buf_info);
+	assert(res == VK_SUCCESS);
+	return res;
+}
+
+VkResult execute_end_command_buffer(VkCommandBuffer cmd) {
+	VkResult U_ASSERT_ONLY res;
+
+	res = vkEndCommandBuffer(cmd);
+	assert(res == VK_SUCCESS);
+	return res;
+}
+
+void createDeviceQueue() {
+	/* DEPENDS on init_swapchain_extension() */
+
+	vkGetDeviceQueue(device, graphics_queue_family_index, 0,
+		&graphics_queue);
+	if (graphics_queue_family_index == present_queue_family_index) {
+		present_queue = graphics_queue;
+	}
+	else {
+		vkGetDeviceQueue(device, present_queue_family_index, 0,
+			&present_queue);
+	}
+}

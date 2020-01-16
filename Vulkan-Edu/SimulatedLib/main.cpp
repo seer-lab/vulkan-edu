@@ -5,13 +5,18 @@
 
 int main() {
 	VkResult res;
-	createInstance();
-	createDeviceInfo();
+	res = createInstance();
+	res = createDeviceInfo();
 	createWindowContext(512, 512);
-	createSwapChain();
+	res = createSwapChainExtention(); //Needs a bit more to add
+	res = createDevice();
 
-	//res = createInstance();
-	//res = createDeviceInfo();
-	//createWindowContext(1280, 720);
-	//res = createSwapChain();
+	VkCommandBuffer cmdbuffer;
+	res = createCommandPool();
+	res = createCommandBuffer(cmdbuffer);
+	res = execute_begin_command_buffer(cmdbuffer);
+	createDeviceQueue();
+
+
+
 }
