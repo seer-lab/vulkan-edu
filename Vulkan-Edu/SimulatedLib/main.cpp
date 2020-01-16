@@ -17,6 +17,4 @@ int main() {
 	res = execute_begin_command_buffer(cmdbuffer);
 	createDeviceQueue();
 
-
-
 }

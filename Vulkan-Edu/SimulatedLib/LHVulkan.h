@@ -27,17 +27,34 @@ typedef struct {
 	std::vector<VkExtensionProperties> extensions;
 } layer_properties;
 
+typedef struct _swap_chain_buffers {
+	VkImage image;
+	VkImageView view;
+} swap_chain_buffer;
+
+typedef struct {
+	VkFormat format;
+
+	VkImage image;
+	VkDeviceMemory mem;
+	VkImageView view;
+} depth;
+
 VkResult init_global_extension_propertiesT(layer_properties& layer_props);
 VkResult globalLayerProperties();
 void deviceExtentionName();
 void instanceExtentionName();
 VkResult createInstance(std::string appName = "Sample App", std::string engineName = "Sample Engine");
 VkResult createDeviceInfo();
-VkResult createSwapChain();
+VkResult createSwapChainExtention();
 VkResult createDevice();
+
+//Make a utililty file;
+void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkCommandBuffer cmd);
 
 #define LAYER_COUNT 0
 #define LAYER_NAME NULL
+#define NUM_SAMPLES VK_SAMPLE_COUNT_1_BIT
 
 //TODO Change this such that it can handle Multiplatform code
 #define EXTENSION_COUNT 2
@@ -49,6 +66,8 @@ std::string name;
 uint32_t queue_family_count;
 uint32_t graphics_queue_family_index;
 uint32_t present_queue_family_index;
+uint32_t swapchainImageCount;
+uint32_t current_buffer;
 VkPhysicalDeviceMemoryProperties memory_properties;
 VkPhysicalDeviceProperties gpu_props;
 VkCommandPool cmdpool;
@@ -57,6 +76,7 @@ VkSurfaceKHR surface;
 VkFormat format;
 VkQueue graphics_queue;
 VkQueue present_queue;
+VkSwapchainKHR swap_chain;
 
 std::vector<const char*> device_extension_names;
 std::vector<const char*> instance_layer_names;
@@ -64,12 +84,16 @@ std::vector<const char*> instance_extension_names;
 std::vector<VkPhysicalDevice> gpus;
 std::vector<VkQueueFamilyProperties> queue_props;
 std::vector<layer_properties> instance_layer_properties;
+std::vector<swap_chain_buffer> scBuffer;
 
 //TODO MAKE MULTIPLATFORM (Surface Creation)
 static HINSTANCE connection;
 static HWND window;
 long info;
+int width;
+int height;
 
+depth depths;
 VkResult init_global_extension_propertiesT(layer_properties& layer_props) {
 	VkExtensionProperties* instance_extensions;
 	uint32_t instance_extension_count;
@@ -132,7 +156,6 @@ VkResult globalLayerProperties() {
 
 	return res;
 }
-
 
 void instanceExtentionName() {
 	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -230,7 +253,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
 }
 
-static void createWindowContext(int height, int width) {
+static void createWindowContext(int w, int h) {
+	width = w;
+	height = h;
+
 	WNDCLASSEX win_class;
 	assert(width > 0);
 	assert(height > 0);
@@ -412,6 +438,8 @@ VkResult createCommandPool() {
 
 	res = vkCreateCommandPool(device, &cmd_pool_info, NULL, &cmdpool);
 	assert(res == VK_SUCCESS);
+
+	return res;
 }
 
 VkResult createCommandBuffer(VkCommandBuffer& newCmd) {
@@ -465,4 +493,350 @@ void createDeviceQueue() {
 		vkGetDeviceQueue(device, present_queue_family_index, 0,
 			&present_queue);
 	}
+}
+
+void createSwapChain(VkImageUsageFlags usageFlags) {
+
+	VkResult U_ASSERT_ONLY res;
+	VkSurfaceCapabilitiesKHR surfCapabilities;
+
+	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpus[0], surface,&surfCapabilities);
+	assert(res == VK_SUCCESS);
+
+	uint32_t presentModeCount;
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(gpus[0], surface, &presentModeCount, NULL);
+	assert(res == VK_SUCCESS);
+
+	VkPresentModeKHR* presentModes = (VkPresentModeKHR*)malloc(presentModeCount * sizeof(VkPresentModeKHR));
+	assert(presentModes);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(gpus[0], surface, &presentModeCount, presentModes);
+	assert(res == VK_SUCCESS);
+
+	VkExtent2D swapchainExtent;
+	// width and height are either both 0xFFFFFFFF, or both not 0xFFFFFFFF.
+	if (surfCapabilities.currentExtent.width == 0xFFFFFFFF) {
+		// If the surface size is undefined, the size is set to
+		// the size of the images requested.
+		swapchainExtent.width = width;
+		swapchainExtent.height = height;
+		if (swapchainExtent.width < surfCapabilities.minImageExtent.width) {
+			swapchainExtent.width = surfCapabilities.minImageExtent.width;
+		}
+		else if (swapchainExtent.width >
+			surfCapabilities.maxImageExtent.width) {
+			swapchainExtent.width = surfCapabilities.maxImageExtent.width;
+		}
+
+		if (swapchainExtent.height < surfCapabilities.minImageExtent.height) {
+			swapchainExtent.height = surfCapabilities.minImageExtent.height;
+		}
+		else if (swapchainExtent.height >
+			surfCapabilities.maxImageExtent.height) {
+			swapchainExtent.height = surfCapabilities.maxImageExtent.height;
+		}
+	}
+	else {
+		// If the surface size is defined, the swap chain size must match
+		swapchainExtent = surfCapabilities.currentExtent;
+	}
+
+	// If mailbox mode is available, use it, as is the lowest-latency non-
+	// tearing mode.  If not, try IMMEDIATE which will usually be available,
+	// and is fastest (though it tears).  If not, fall back to FIFO which is
+	// always available.
+	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+	for (size_t i = 0; i < presentModeCount; i++) {
+		if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+			swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
+		if ((swapchainPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) &&
+			(presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)) {
+			swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+		}
+	}
+
+	// Determine the number of VkImage's to use in the swap chain.
+	// We need to acquire only 1 presentable image at at time.
+	// Asking for minImageCount images ensures that we can acquire
+	// 1 presentable image as long as we present it before attempting
+	// to acquire another.
+	uint32_t desiredNumberOfSwapChainImages = surfCapabilities.minImageCount;
+
+	VkSurfaceTransformFlagBitsKHR preTransform;
+	if (surfCapabilities.supportedTransforms &
+		VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	}
+	else {
+		preTransform = surfCapabilities.currentTransform;
+	}
+
+	VkSwapchainCreateInfoKHR swapchain_ci = {};
+	swapchain_ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapchain_ci.pNext = NULL;
+	swapchain_ci.surface = surface;
+	swapchain_ci.minImageCount = desiredNumberOfSwapChainImages;
+	swapchain_ci.imageFormat = format;
+	swapchain_ci.imageExtent.width = swapchainExtent.width;
+	swapchain_ci.imageExtent.height = swapchainExtent.height;
+	swapchain_ci.preTransform = preTransform;
+	swapchain_ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapchain_ci.imageArrayLayers = 1;
+	swapchain_ci.presentMode = swapchainPresentMode;
+	swapchain_ci.oldSwapchain = VK_NULL_HANDLE;
+	swapchain_ci.clipped = true;
+	swapchain_ci.imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+	swapchain_ci.imageUsage = usageFlags;
+	swapchain_ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	swapchain_ci.queueFamilyIndexCount = 0;
+	swapchain_ci.pQueueFamilyIndices = NULL;
+	uint32_t queueFamilyIndices[2] = {
+		(uint32_t)graphics_queue_family_index,
+		(uint32_t)present_queue_family_index };
+	if (graphics_queue_family_index != present_queue_family_index) {
+
+		swapchain_ci.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		swapchain_ci.queueFamilyIndexCount = 2;
+		swapchain_ci.pQueueFamilyIndices = queueFamilyIndices;
+	}
+
+	res = vkCreateSwapchainKHR(device, &swapchain_ci, NULL,&swap_chain);
+	assert(res == VK_SUCCESS);
+
+	res = vkGetSwapchainImagesKHR(device, swap_chain,&swapchainImageCount, NULL);
+	assert(res == VK_SUCCESS);
+
+	VkImage* swapchainImages =
+		(VkImage*)malloc(swapchainImageCount * sizeof(VkImage));
+	assert(swapchainImages);
+
+	res = vkGetSwapchainImagesKHR(device, swap_chain, &swapchainImageCount, swapchainImages);
+	assert(res == VK_SUCCESS);
+
+	for (uint32_t i = 0; i < swapchainImageCount; i++) {
+		swap_chain_buffer sc_buffer;
+
+		VkImageViewCreateInfo color_image_view = {};
+		color_image_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		color_image_view.pNext = NULL;
+		color_image_view.format = format;
+		color_image_view.components.r = VK_COMPONENT_SWIZZLE_R;
+		color_image_view.components.g = VK_COMPONENT_SWIZZLE_G;
+		color_image_view.components.b = VK_COMPONENT_SWIZZLE_B;
+		color_image_view.components.a = VK_COMPONENT_SWIZZLE_A;
+		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		color_image_view.subresourceRange.baseMipLevel = 0;
+		color_image_view.subresourceRange.levelCount = 1;
+		color_image_view.subresourceRange.baseArrayLayer = 0;
+		color_image_view.subresourceRange.layerCount = 1;
+		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		color_image_view.flags = 0;
+
+		sc_buffer.image = swapchainImages[i];
+
+		color_image_view.image = sc_buffer.image;
+
+		res = vkCreateImageView(device, &color_image_view, NULL,
+			&sc_buffer.view);
+		scBuffer.push_back(sc_buffer);
+		assert(res == VK_SUCCESS);
+	}
+	free(swapchainImages);
+	current_buffer = 0;
+
+	if (NULL != presentModes) {
+		free(presentModes);
+	}
+}
+
+void init_depth_buffer(VkCommandBuffer cmd) {
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+	VkImageCreateInfo image_info = {};
+
+	/* allow custom depth formats */
+	if (depths.format == VK_FORMAT_UNDEFINED)
+		depths.format = VK_FORMAT_D16_UNORM;
+
+	const VkFormat depth_format = depths.format;
+
+	VkFormatProperties props;
+	vkGetPhysicalDeviceFormatProperties(gpus[0], depth_format, &props);
+	if (props.linearTilingFeatures &
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+		image_info.tiling = VK_IMAGE_TILING_LINEAR;
+	}
+	else if (props.optimalTilingFeatures &
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+		image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	}
+	else {
+		/* Try other depth formats? */
+		std::cout << "depth_format " << depth_format << " Unsupported.\n";
+		exit(-1);
+	}
+
+	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	image_info.pNext = NULL;
+	image_info.imageType = VK_IMAGE_TYPE_2D;
+	image_info.format = depth_format;
+	image_info.extent.width = width;
+	image_info.extent.height = height;
+	image_info.extent.depth = 1;
+	image_info.mipLevels = 1;
+	image_info.arrayLayers = 1;
+	image_info.samples = NUM_SAMPLES;
+	image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	image_info.queueFamilyIndexCount = 0;
+	image_info.pQueueFamilyIndices = NULL;
+	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	image_info.flags = 0;
+
+	VkMemoryAllocateInfo mem_alloc = {};
+	mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	mem_alloc.pNext = NULL;
+	mem_alloc.allocationSize = 0;
+	mem_alloc.memoryTypeIndex = 0;
+
+	VkImageViewCreateInfo view_info = {};
+	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	view_info.pNext = NULL;
+	view_info.image = VK_NULL_HANDLE;
+	view_info.format = depth_format;
+	view_info.components.r = VK_COMPONENT_SWIZZLE_R;
+	view_info.components.g = VK_COMPONENT_SWIZZLE_G;
+	view_info.components.b = VK_COMPONENT_SWIZZLE_B;
+	view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	view_info.subresourceRange.baseMipLevel = 0;
+	view_info.subresourceRange.levelCount = 1;
+	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.layerCount = 1;
+	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.flags = 0;
+
+	if (depth_format == VK_FORMAT_D16_UNORM_S8_UINT ||
+		depth_format == VK_FORMAT_D24_UNORM_S8_UINT ||
+		depth_format == VK_FORMAT_D32_SFLOAT_S8_UINT) {
+		view_info.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+
+	VkMemoryRequirements mem_reqs;
+
+	/* Create image */
+	res = vkCreateImage(device, &image_info, NULL, &depths.image);
+	assert(res == VK_SUCCESS);
+
+	vkGetImageMemoryRequirements(device, depths.image, &mem_reqs);
+
+	mem_alloc.allocationSize = mem_reqs.size;
+	/* Use the memory properties to determine the type of memory required */
+
+	pass = false;
+
+	VkFlags requirement_mask = 0;
+
+	// Search memtypes to find first index with those properties
+	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
+		if ((mem_reqs.memoryTypeBits & 1) == 1) {
+			// Type is available, does it match user properties?
+			if ((memory_properties.memoryTypes[i].propertyFlags & requirement_mask) == requirement_mask) {
+				mem_alloc.memoryTypeIndex = i;
+				pass = true;
+				break;
+			}
+		}
+		mem_reqs.memoryTypeBits >>= 1;
+	}
+
+	//pass = memory_type_from_properties(info, mem_reqs.memoryTypeBits,
+	//	0, /* No requirements */
+	//	&mem_alloc.memoryTypeIndex);
+	assert(pass);
+
+	/* Allocate memory */
+	res = vkAllocateMemory(device, &mem_alloc, NULL, &depths.mem);
+	assert(res == VK_SUCCESS);
+
+	/* Bind memory */
+	res = vkBindImageMemory(device, depths.image, depths.mem, 0);
+	assert(res == VK_SUCCESS);
+
+	/* Set the image layout to depth stencil optimal */
+	set_image_layout(depths.image,
+		view_info.subresourceRange.aspectMask,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		cmd);
+
+
+	/* Create image view */
+	view_info.image = depths.image;
+	res = vkCreateImageView(device, &view_info, NULL, &depths.view);
+	assert(res == VK_SUCCESS);
+}
+void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkCommandBuffer cmd) {
+	/* DEPENDS on info.cmd and info.queue initialized */
+
+	assert(cmd != VK_NULL_HANDLE);
+	assert(graphics_queue != VK_NULL_HANDLE);
+
+	VkImageMemoryBarrier image_memory_barrier = {};
+	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	image_memory_barrier.pNext = NULL;
+	image_memory_barrier.srcAccessMask = 0;
+	image_memory_barrier.dstAccessMask = 0;
+	image_memory_barrier.oldLayout = old_image_layout;
+	image_memory_barrier.newLayout = new_image_layout;
+	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.image = image;
+	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
+	image_memory_barrier.subresourceRange.baseMipLevel = 0;
+	image_memory_barrier.subresourceRange.levelCount = 1;
+	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
+	image_memory_barrier.subresourceRange.layerCount = 1;
+
+	if (old_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		image_memory_barrier.srcAccessMask =
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	}
+
+	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	}
+
+	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	}
+
+	if (old_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	}
+
+	if (old_image_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
+		image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+	}
+
+	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	}
+
+	if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		image_memory_barrier.dstAccessMask =
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	}
+
+	if (new_image_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+		image_memory_barrier.dstAccessMask =
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	}
+
+	VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, 0, 0, NULL, 0, NULL,
+		1, &image_memory_barrier);
 }
