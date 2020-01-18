@@ -18,5 +18,8 @@ int main() {
 	createDeviceQueue();
 	createSwapChain(17);
 	createDepthBuffer(cmdbuffer);
+	glm::mat4 model = glm::mat4(1.0f);
+	Uniform_Data uData;
+	setUniformValue<glm::mat4>(model, uData);
 
 }
