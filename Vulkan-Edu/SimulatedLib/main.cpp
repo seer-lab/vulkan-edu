@@ -35,6 +35,164 @@ static const char* fragShaderText =
 "   outColor = color;\n"
 "}\n";
 
+struct {
+	VkBuffer buf;
+	VkDeviceMemory mem;
+	VkDescriptorBufferInfo buffer_info;
+} vertex_buffer;
+VkVertexInputBindingDescription vi_binding;
+VkVertexInputAttributeDescription vi_attribs[2];
+
+float *vBuffer;
+VkBuffer iBuffer;
+
+VkResult mesh_init() {
+	int i;
+	int k;
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+	float vertices[8][4] = {
+		{ -1.0, -1.0, -1.0, 1.0 }, //0
+		{ -1.0, -1.0, 1.0, 1.0 }, //1
+		{ -1.0, 1.0, -1.0, 1.0 }, //2
+		{ -1.0, 1.0, 1.0, 1.0 }, //3
+		{ 1.0, -1.0, -1.0, 1.0 }, //4
+		{ 1.0, -1.0, 1.0, 1.0 }, //5
+		{ 1.0, 1.0, -1.0, 1.0 }, //6
+		{ 1.0, 1.0, 1.0, 1.0 } //7
+	};
+
+	float normals[8][3] = {
+		{ -1.0, -1.0, -1.0 }, //0
+		{ -1.0, -1.0, 1.0 }, //1
+		{ -1.0, 1.0, -1.0 }, //2
+		{ -1.0, 1.0, 1.0 }, //3
+		{ 1.0, -1.0, -1.0 }, //4
+		{ 1.0, -1.0, 1.0 }, //5
+		{ 1.0, 1.0, -1.0 }, //6
+		{ 1.0, 1.0, 1.0 } //7
+	};
+
+	uint16_t indices[36] = { 3, 1, 0, 0, 2, 3,
+		0, 4, 5, 5, 1, 0,
+		2, 6, 7, 7, 3, 2,
+		0, 4, 6, 0, 2, 6,
+		1, 5, 7, 7, 3, 1,
+		7, 5, 4, 4, 6, 7 };
+
+	vBuffer = new float[7 * 8];
+	k = 0;
+	for (i = 0; i < 8; i++) {
+		vBuffer[k++] = vertices[i][0];
+		vBuffer[k++] = vertices[i][1];
+		vBuffer[k++] = vertices[i][2];
+		vBuffer[k++] = vertices[i][3];
+		vBuffer[k++] = normals[i][0];
+		vBuffer[k++] = normals[i][1];
+		vBuffer[k++] = normals[i][2];
+	}
+
+	VkBufferCreateInfo buf_info = {};
+	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	buf_info.pNext = NULL;
+	buf_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	buf_info.size = sizeof(indices);
+	buf_info.queueFamilyIndexCount = 0;
+	buf_info.pQueueFamilyIndices = NULL;
+	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	buf_info.flags = 0;
+	res = vkCreateBuffer(device, &buf_info, NULL, &iBuffer);
+	assert(res == VK_SUCCESS);
+	VkMemoryRequirements mem_reqs;
+	vkGetBufferMemoryRequirements(device, iBuffer, &mem_reqs);
+	VkMemoryAllocateInfo alloc_info = {};
+	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.pNext = NULL;
+	alloc_info.memoryTypeIndex = 0;
+	alloc_info.allocationSize = mem_reqs.size;
+	pass = memory_type_from_properties(memory_properties, mem_reqs.memoryTypeBits,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&alloc_info.memoryTypeIndex);
+	assert(pass && "No mappable coherent memory");
+	VkDeviceMemory mem;
+	res = vkAllocateMemory(device, &alloc_info, NULL, &mem);
+	assert(res == VK_SUCCESS);
+	uint8_t* pData;
+	res = vkMapMemory(device, mem, 0, mem_reqs.size, 0, (void**)
+		&pData);
+	assert(res == VK_SUCCESS);
+	memcpy(pData, indices, sizeof(indices));
+	vkUnmapMemory(device, mem);
+	res = vkBindBufferMemory(device, iBuffer, mem, 0);
+	assert(res == VK_SUCCESS);
+	return res;
+}
+
+void init_vertex_buffer(const void* vertexData, uint32_t dataSize, uint32_t dataStride, bool use_texture) {
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+
+	VkBufferCreateInfo buf_info = {};
+	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	buf_info.pNext = NULL;
+	buf_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	buf_info.size = dataSize;
+	buf_info.queueFamilyIndexCount = 0;
+	buf_info.pQueueFamilyIndices = NULL;
+	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	buf_info.flags = 0;
+	res = vkCreateBuffer(device, &buf_info, NULL, &vertex_buffer.buf);
+	assert(res == VK_SUCCESS);
+
+	VkMemoryRequirements mem_reqs;
+	vkGetBufferMemoryRequirements(device, vertex_buffer.buf, &mem_reqs);
+
+	VkMemoryAllocateInfo alloc_info = {};
+	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.pNext = NULL;
+	alloc_info.memoryTypeIndex = 0;
+
+	alloc_info.allocationSize = mem_reqs.size;
+	pass = memory_type_from_properties(memory_properties, mem_reqs.memoryTypeBits,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&alloc_info.memoryTypeIndex);
+	assert(pass && "No mappable, coherent memory");
+
+	res = vkAllocateMemory(device, &alloc_info, NULL, &(vertex_buffer.mem));
+	assert(res == VK_SUCCESS);
+
+	vertex_buffer.buffer_info.range = mem_reqs.size;
+	vertex_buffer.buffer_info.offset = 0;
+
+	uint8_t* pData;
+	res = vkMapMemory(device, vertex_buffer.mem, 0, mem_reqs.size, 0,
+		(void**)&pData);
+	assert(res == VK_SUCCESS);
+
+	memcpy(pData, vertexData, dataSize);
+
+	vkUnmapMemory(device, vertex_buffer.mem);
+
+	res = vkBindBufferMemory(device, vertex_buffer.buf, vertex_buffer.mem, 0);
+	assert(res == VK_SUCCESS);
+
+	vi_binding.binding = 0;
+	vi_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	vi_binding.stride = dataStride;
+
+	vi_attribs[0].binding = 0;
+	vi_attribs[0].location = 0;
+	vi_attribs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	vi_attribs[0].offset = 0;
+	vi_attribs[1].binding = 0;
+	vi_attribs[1].location = 1;
+	vi_attribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	vi_attribs[1].offset = 16;
+
+}
+
 int main() {
 	VkResult res;
 	const bool depthPresent = true;
