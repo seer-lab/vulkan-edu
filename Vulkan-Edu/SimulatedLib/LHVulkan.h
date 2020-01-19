@@ -3,6 +3,7 @@
 #endif
 
 #include <vulkan/vulkan.h>
+#include <SPIRV/GlslangToSpv.h>
 #include <iostream>
 
 #if _WIN32
@@ -61,10 +62,16 @@ VkResult createInstance(std::string appName = "Sample App", std::string engineNa
 VkResult createDeviceInfo();
 VkResult createSwapChainExtention();
 VkResult createDevice();
+VkResult createRenderPass(bool include_depth, bool clear = true, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 //Make a utililty file;
 void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkCommandBuffer cmd);
 bool memory_type_from_properties(VkPhysicalDeviceMemoryProperties memory_properties, uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
+void init_glslang();
+void finalize_glslang();
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char* pshader, std::vector<unsigned int>& spirv);
+EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type);
+void init_resources(TBuiltInResource& Resources);
 #define LAYER_COUNT 0
 #define LAYER_NAME NULL
 #define NUM_SAMPLES VK_SAMPLE_COUNT_1_BIT
@@ -92,6 +99,9 @@ VkQueue present_queue;
 VkSwapchainKHR swap_chain;
 int num_descriptor_sets;
 VkPipelineLayout pipeline_layout;
+VkRenderPass render_pass;
+VkPipelineShaderStageCreateInfo shaderStages[2];
+VkFramebuffer framebuffers;
 
 std::vector<VkDescriptorSetLayout> desc_layout;
 std::vector<const char*> device_extension_names;
@@ -892,6 +902,165 @@ VkResult createDescripterLayout() {
 	return res;
 }
 
+VkResult createRenderPass(bool include_depth, bool clear,  VkImageLayout finalLayout) {
+	/* DEPENDS on init_swap_chain() and init_depth_buffer() */
+
+	VkResult U_ASSERT_ONLY res;
+	/* Need attachments for render target and depth buffer */
+	VkAttachmentDescription attachments[2];
+	attachments[0].format = format;
+	attachments[0].samples = NUM_SAMPLES;
+	attachments[0].loadOp =
+		clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = finalLayout;
+	attachments[0].flags = 0;
+
+	if (include_depth) {
+		attachments[1].format = depths.format;
+		attachments[1].samples = NUM_SAMPLES;
+		attachments[1].loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR
+			: VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachments[1].initialLayout =
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachments[1].finalLayout =
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachments[1].flags = 0;
+	}
+
+	VkAttachmentReference color_reference = {};
+	color_reference.attachment = 0;
+	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depth_reference = {};
+	depth_reference.attachment = 1;
+	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.flags = 0;
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = NULL;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &color_reference;
+	subpass.pResolveAttachments = NULL;
+	subpass.pDepthStencilAttachment = include_depth ? &depth_reference : NULL;
+	subpass.preserveAttachmentCount = 0;
+	subpass.pPreserveAttachments = NULL;
+
+	VkRenderPassCreateInfo rp_info = {};
+	rp_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	rp_info.pNext = NULL;
+	rp_info.attachmentCount = include_depth ? 2 : 1;
+	rp_info.pAttachments = attachments;
+	rp_info.subpassCount = 1;
+	rp_info.pSubpasses = &subpass;
+	rp_info.dependencyCount = 0;
+	rp_info.pDependencies = NULL;
+
+	res = vkCreateRenderPass(device, &rp_info, NULL, &render_pass);
+	assert(res == VK_SUCCESS);
+	return res;
+}
+
+void init_shaders( const char* vertShaderText, const char* fragShaderText) {
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY retVal;
+
+	// If no shaders were submitted, just return
+	if (!(vertShaderText || fragShaderText))
+		return;
+
+	init_glslang();
+	VkShaderModuleCreateInfo moduleCreateInfo;
+
+	if (vertShaderText) {
+		std::vector<unsigned int> vtx_spv;
+		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStages[0].pNext = NULL;
+		shaderStages[0].pSpecializationInfo = NULL;
+		shaderStages[0].flags = 0;
+		shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+		shaderStages[0].pName = "main";
+
+		retVal = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, vertShaderText, vtx_spv);
+		assert(retVal);
+
+		moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		moduleCreateInfo.pNext = NULL;
+		moduleCreateInfo.flags = 0;
+		moduleCreateInfo.codeSize = vtx_spv.size() * sizeof(unsigned int);
+		moduleCreateInfo.pCode = vtx_spv.data();
+		res = vkCreateShaderModule(device, &moduleCreateInfo, NULL,
+			&shaderStages[0].module);
+		assert(res == VK_SUCCESS);
+	}
+
+	if (fragShaderText) {
+		std::vector<unsigned int> frag_spv;
+		shaderStages[1].sType =
+			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStages[1].pNext = NULL;
+		shaderStages[1].pSpecializationInfo = NULL;
+		shaderStages[1].flags = 0;
+		shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		shaderStages[1].pName = "main";
+
+		retVal =
+			GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderText, frag_spv);
+		assert(retVal);
+
+		moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		moduleCreateInfo.pNext = NULL;
+		moduleCreateInfo.flags = 0;
+		moduleCreateInfo.codeSize = frag_spv.size() * sizeof(unsigned int);
+		moduleCreateInfo.pCode = frag_spv.data();
+		res = vkCreateShaderModule(device, &moduleCreateInfo, NULL,
+			&shaderStages[1].module);
+		assert(res == VK_SUCCESS);
+	}
+
+	finalize_glslang();
+}
+
+VkResult init_framebuffers( bool include_depth) {
+	/* DEPENDS on init_depth_buffer(), init_renderpass() and
+	* init_swapchain_extension() */
+
+	VkResult U_ASSERT_ONLY res;
+	VkImageView attachments[2];
+	attachments[1] = depths.view;
+
+	VkFramebufferCreateInfo fb_info = {};
+	fb_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	fb_info.pNext = NULL;
+	fb_info.renderPass = render_pass;
+	fb_info.attachmentCount = include_depth ? 2 : 1;
+	fb_info.pAttachments = attachments;
+	fb_info.width = width;
+	fb_info.height = height;
+	fb_info.layers = 1;
+
+	uint32_t i;
+
+	framebuffers = (VkFramebuffer*)malloc(swapchainImageCount * sizeof(VkFramebuffer));
+
+	for (i = 0; i < swapchainImageCount; i++) {
+		attachments[0] = scBuffer[i].view;
+		res = vkCreateFramebuffer(device, &fb_info, NULL, &framebuffers[i]);
+		assert(res == VK_SUCCESS);
+	}
+
+	return res;
+}
+
+/*------------------------------------------------------------------------------------------------->*/
 bool memory_type_from_properties(VkPhysicalDeviceMemoryProperties memory_properties, uint32_t typeBits,
 	VkFlags requirements_mask,
 	uint32_t* typeIndex) {
@@ -973,4 +1142,177 @@ void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayou
 
 	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, 0, 0, NULL, 0, NULL,
 		1, &image_memory_barrier);
+}
+
+void init_glslang() {
+	glslang::InitializeProcess();
+
+}
+
+void finalize_glslang(){
+	glslang::FinalizeProcess();
+
+}
+
+//
+// Compile a given string containing GLSL into SPV for use by VK
+// Return value of false means an error was encountered.
+//
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char* pshader,
+	std::vector<unsigned int>& spirv) {
+	EShLanguage stage = FindLanguage(shader_type);
+	glslang::TShader shader(stage);
+	glslang::TProgram program;
+	const char* shaderStrings[1];
+	TBuiltInResource Resources;
+	init_resources(Resources);
+
+	// Enable SPIR-V and Vulkan rules when parsing GLSL
+	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+
+	shaderStrings[0] = pshader;
+	shader.setStrings(shaderStrings, 1);
+
+	if (!shader.parse(&Resources, 100, false, messages)) {
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
+		return false; // something didn't work
+	}
+
+	program.addShader(&shader);
+
+	//
+	// Program-level processing...
+	//
+
+	if (!program.link(messages)) {
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
+		fflush(stdout);
+		return false;
+	}
+
+	glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
+
+	return true;
+}
+
+EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
+	switch (shader_type) {
+	case VK_SHADER_STAGE_VERTEX_BIT:
+		return EShLangVertex;
+
+	case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+		return EShLangTessControl;
+
+	case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+		return EShLangTessEvaluation;
+
+	case VK_SHADER_STAGE_GEOMETRY_BIT:
+		return EShLangGeometry;
+
+	case VK_SHADER_STAGE_FRAGMENT_BIT:
+		return EShLangFragment;
+
+	case VK_SHADER_STAGE_COMPUTE_BIT:
+		return EShLangCompute;
+
+	default:
+		return EShLangVertex;
+	}
+}
+
+void init_resources(TBuiltInResource& Resources) {
+	Resources.maxLights = 32;
+	Resources.maxClipPlanes = 6;
+	Resources.maxTextureUnits = 32;
+	Resources.maxTextureCoords = 32;
+	Resources.maxVertexAttribs = 64;
+	Resources.maxVertexUniformComponents = 4096;
+	Resources.maxVaryingFloats = 64;
+	Resources.maxVertexTextureImageUnits = 32;
+	Resources.maxCombinedTextureImageUnits = 80;
+	Resources.maxTextureImageUnits = 32;
+	Resources.maxFragmentUniformComponents = 4096;
+	Resources.maxDrawBuffers = 32;
+	Resources.maxVertexUniformVectors = 128;
+	Resources.maxVaryingVectors = 8;
+	Resources.maxFragmentUniformVectors = 16;
+	Resources.maxVertexOutputVectors = 16;
+	Resources.maxFragmentInputVectors = 15;
+	Resources.minProgramTexelOffset = -8;
+	Resources.maxProgramTexelOffset = 7;
+	Resources.maxClipDistances = 8;
+	Resources.maxComputeWorkGroupCountX = 65535;
+	Resources.maxComputeWorkGroupCountY = 65535;
+	Resources.maxComputeWorkGroupCountZ = 65535;
+	Resources.maxComputeWorkGroupSizeX = 1024;
+	Resources.maxComputeWorkGroupSizeY = 1024;
+	Resources.maxComputeWorkGroupSizeZ = 64;
+	Resources.maxComputeUniformComponents = 1024;
+	Resources.maxComputeTextureImageUnits = 16;
+	Resources.maxComputeImageUniforms = 8;
+	Resources.maxComputeAtomicCounters = 8;
+	Resources.maxComputeAtomicCounterBuffers = 1;
+	Resources.maxVaryingComponents = 60;
+	Resources.maxVertexOutputComponents = 64;
+	Resources.maxGeometryInputComponents = 64;
+	Resources.maxGeometryOutputComponents = 128;
+	Resources.maxFragmentInputComponents = 128;
+	Resources.maxImageUnits = 8;
+	Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
+	Resources.maxCombinedShaderOutputResources = 8;
+	Resources.maxImageSamples = 0;
+	Resources.maxVertexImageUniforms = 0;
+	Resources.maxTessControlImageUniforms = 0;
+	Resources.maxTessEvaluationImageUniforms = 0;
+	Resources.maxGeometryImageUniforms = 0;
+	Resources.maxFragmentImageUniforms = 8;
+	Resources.maxCombinedImageUniforms = 8;
+	Resources.maxGeometryTextureImageUnits = 16;
+	Resources.maxGeometryOutputVertices = 256;
+	Resources.maxGeometryTotalOutputComponents = 1024;
+	Resources.maxGeometryUniformComponents = 1024;
+	Resources.maxGeometryVaryingComponents = 64;
+	Resources.maxTessControlInputComponents = 128;
+	Resources.maxTessControlOutputComponents = 128;
+	Resources.maxTessControlTextureImageUnits = 16;
+	Resources.maxTessControlUniformComponents = 1024;
+	Resources.maxTessControlTotalOutputComponents = 4096;
+	Resources.maxTessEvaluationInputComponents = 128;
+	Resources.maxTessEvaluationOutputComponents = 128;
+	Resources.maxTessEvaluationTextureImageUnits = 16;
+	Resources.maxTessEvaluationUniformComponents = 1024;
+	Resources.maxTessPatchComponents = 120;
+	Resources.maxPatchVertices = 32;
+	Resources.maxTessGenLevel = 64;
+	Resources.maxViewports = 16;
+	Resources.maxVertexAtomicCounters = 0;
+	Resources.maxTessControlAtomicCounters = 0;
+	Resources.maxTessEvaluationAtomicCounters = 0;
+	Resources.maxGeometryAtomicCounters = 0;
+	Resources.maxFragmentAtomicCounters = 8;
+	Resources.maxCombinedAtomicCounters = 8;
+	Resources.maxAtomicCounterBindings = 1;
+	Resources.maxVertexAtomicCounterBuffers = 0;
+	Resources.maxTessControlAtomicCounterBuffers = 0;
+	Resources.maxTessEvaluationAtomicCounterBuffers = 0;
+	Resources.maxGeometryAtomicCounterBuffers = 0;
+	Resources.maxFragmentAtomicCounterBuffers = 1;
+	Resources.maxCombinedAtomicCounterBuffers = 1;
+	Resources.maxAtomicCounterBufferSize = 16384;
+	Resources.maxTransformFeedbackBuffers = 4;
+	Resources.maxTransformFeedbackInterleavedComponents = 64;
+	Resources.maxCullDistances = 8;
+	Resources.maxCombinedClipAndCullDistances = 8;
+	Resources.maxSamples = 4;
+	Resources.limits.nonInductiveForLoops = 1;
+	Resources.limits.whileLoops = 1;
+	Resources.limits.doWhileLoops = 1;
+	Resources.limits.generalUniformIndexing = 1;
+	Resources.limits.generalAttributeMatrixVectorIndexing = 1;
+	Resources.limits.generalVaryingIndexing = 1;
+	Resources.limits.generalSamplerIndexing = 1;
+	Resources.limits.generalVariableIndexing = 1;
+	Resources.limits.generalConstantMatrixVectorIndexing = 1;
 }
