@@ -102,6 +102,7 @@ VkPipelineLayout pipeline_layout;
 VkRenderPass render_pass;
 VkPipelineShaderStageCreateInfo shaderStages[2];
 VkFramebuffer framebuffers;
+VkDescriptorPool desc_pool;
 
 std::vector<VkDescriptorSetLayout> desc_layout;
 std::vector<const char*> device_extension_names;
@@ -111,8 +112,10 @@ std::vector<VkPhysicalDevice> gpus;
 std::vector<VkQueueFamilyProperties> queue_props;
 std::vector<layer_properties> instance_layer_properties;
 std::vector<swap_chain_buffer> scBuffer;
+std::vector<VkDescriptorSet> desc_set;
 
 std::vector<uniformVariable> uniformVar;
+std::vector<uniform_data> uniform_d;
 
 //TODO MAKE MULTIPLATFORM (Surface Creation)
 static HINSTANCE connection;
@@ -824,11 +827,14 @@ VkResult setUniformValue(T uniformVal,
 	buf_info.pQueueFamilyIndices = NULL;
 	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	buf_info.flags = 0;
-	res = vkCreateBuffer(device, &buf_info, NULL, &uni_data.buf);
+
+	uniform_data ud = {};
+	uniform_d.push_back(ud);
+	res = vkCreateBuffer(device, &buf_info, NULL, &uniform_d[uniform_d.size()].buf);
 	assert(res == VK_SUCCESS);
 
 	VkMemoryRequirements mem_reqs;
-	vkGetBufferMemoryRequirements(device, uni_data.buf,&mem_reqs);
+	vkGetBufferMemoryRequirements(device, uniform_d[uniform_d.size()].buf,&mem_reqs);
 
 	VkMemoryAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -842,18 +848,18 @@ VkResult setUniformValue(T uniformVal,
 		&alloc_info.memoryTypeIndex);
 	assert(pass && "No mappable, coherent memory");
 	
-	res = vkAllocateMemory(device, &alloc_info, NULL,&(uni_data.mem));
+	res = vkAllocateMemory(device, &alloc_info, NULL,&(&uniform_d[uniform_d.size()].mem));
 	assert(res == VK_SUCCESS);
 	
 	uint8_t* pData;
-	res = vkMapMemory(device, uni_data.mem, 0, mem_reqs.size, 0,(void**)&pData);
+	res = vkMapMemory(device, uniform_d[uniform_d.size()].mem, 0, mem_reqs.size, 0,(void**)&pData);
 	assert(res == VK_SUCCESS);
 	
 	memcpy(pData, &uniformVal, sizeof(uniformVal));
 	
-	vkUnmapMemory(device, uni_data.mem);
+	vkUnmapMemory(device, uniform_d[uniform_d.size()].mem);
 	
-	res = vkBindBufferMemory(device, uni_data.buf, uni_data.mem, 0);
+	res = vkBindBufferMemory(device, uniform_d[uniform_d.size()].buf, uniform_d[uniform_d.size()].mem, 0);
 	assert(res == VK_SUCCESS);
 	
 	uniformVariable uvar;
@@ -1058,6 +1064,61 @@ VkResult init_framebuffers( bool include_depth) {
 	}
 
 	return res;
+}
+
+void createDescriptorPool(bool use_texture) {
+	/* DEPENDS on init_uniform_buffer() and
+	* init_descriptor_and_pipeline_layouts() */
+	VkResult U_ASSERT_ONLY res;
+	int size = uniformVar.size();
+
+	VkDescriptorPoolSize *type_count = new VkDescriptorPoolSize[size];
+
+	for (int i = 0; i < size; i++) {
+		type_count[i].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		type_count[i].descriptorCount = 1;
+	}
+	VkDescriptorPoolCreateInfo descriptor_pool = {};
+	descriptor_pool.sType =
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	descriptor_pool.pNext = NULL;
+	descriptor_pool.maxSets = 1;
+	descriptor_pool.poolSizeCount = size;
+	descriptor_pool.pPoolSizes = type_count;
+	res = vkCreateDescriptorPool(device, &descriptor_pool, NULL, &desc_pool);
+	assert(res == VK_SUCCESS);
+}
+
+void createDescriptorSet(bool use_texture) {
+	/* DEPENDS on init_descriptor_pool() */
+	VkResult U_ASSERT_ONLY res;
+	VkDescriptorSetAllocateInfo alloc_info[1];
+	alloc_info[0].sType =
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	alloc_info[0].pNext = NULL;
+	alloc_info[0].descriptorPool = desc_pool;
+	alloc_info[0].descriptorSetCount = 1;
+	alloc_info[0].pSetLayouts = desc_layout.data();
+	desc_set.resize(num_descriptor_sets);
+	res =
+		vkAllocateDescriptorSets(device, alloc_info, desc_set.data());
+	assert(res == VK_SUCCESS);
+	int size = uniformVar.size();
+
+	VkWriteDescriptorSet *writes = new VkWriteDescriptorSet[size];
+	for (int i = 0; i < size; i++) {
+		writes[0] = {};
+		writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[0].pNext = NULL;
+		writes[0].dstSet = desc_set[0];
+		writes[0].descriptorCount = 1;
+		writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writes[0].pBufferInfo = &uniform_d[i].buffer_info;
+		writes[0].dstArrayElement = 0;
+		writes[0].dstBinding = 0;
+	}
+
+	vkUpdateDescriptorSets(device, size, writes, 0, NULL);
 }
 
 /*------------------------------------------------------------------------------------------------->*/

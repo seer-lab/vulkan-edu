@@ -248,4 +248,7 @@ int main() {
 	createRenderPass(depthPresent);
 	init_shaders(vertShaderText, fragShaderText);
 
+	mesh_init();
+	init_vertex_buffer(vBuffer, 7 * 8 * sizeof(float), 7 * sizeof(float), false);
+
 }
