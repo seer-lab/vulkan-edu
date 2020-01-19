@@ -27,6 +27,14 @@ typedef struct {
 	std::vector<VkExtensionProperties> extensions;
 } layer_properties;
 
+typedef struct uniformVariable {
+	VkShaderStageFlags shaderFlags;
+	uint32_t binding;
+	VkDescriptorType descripterType;
+	std::string uniformName;
+	uint32_t descriptorCount;
+};
+
 typedef struct _swap_chain_buffers {
 	VkImage image;
 	VkImageView view;
@@ -82,7 +90,10 @@ VkFormat format;
 VkQueue graphics_queue;
 VkQueue present_queue;
 VkSwapchainKHR swap_chain;
+int num_descriptor_sets;
+VkPipelineLayout pipeline_layout;
 
+std::vector<VkDescriptorSetLayout> desc_layout;
 std::vector<const char*> device_extension_names;
 std::vector<const char*> instance_layer_names;
 std::vector<const char*> instance_extension_names;
@@ -90,6 +101,8 @@ std::vector<VkPhysicalDevice> gpus;
 std::vector<VkQueueFamilyProperties> queue_props;
 std::vector<layer_properties> instance_layer_properties;
 std::vector<swap_chain_buffer> scBuffer;
+
+std::vector<uniformVariable> uniformVar;
 
 //TODO MAKE MULTIPLATFORM (Surface Creation)
 static HINSTANCE connection;
@@ -784,7 +797,11 @@ void createDepthBuffer(VkCommandBuffer cmd) {
 }
 
 template <class T>
-VkResult setUniformValue(T uniformVal, Uniform_Data& uni_data) {
+VkResult setUniformValue(T uniformVal, 
+						Uniform_Data& uni_data, 
+						uint32_t pBinding, 
+						VkShaderStageFlags sFlags,
+						uint32_t descriptorCount = 1) {
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
 
@@ -829,10 +846,49 @@ VkResult setUniformValue(T uniformVal, Uniform_Data& uni_data) {
 	res = vkBindBufferMemory(device, uni_data.buf, uni_data.mem, 0);
 	assert(res == VK_SUCCESS);
 	
-	//state.uniform_data.buffer_info.buffer = state.uniform_data.buf;
-	//state.uniform_data.buffer_info.offset = 0;
-	//state.uniform_data.buffer_info.range = sizeof(state.MVP);
+	uniformVariable uvar;
+	uvar.binding = pBinding;
+	uvar.shaderFlags = sFlags;
+	uvar.descripterType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uvar.descriptorCount = descriptorCount;
+	uniformVar.push_back(uvar);
 	
+	return res;
+}
+
+VkResult createDescripterLayout() {
+	VkResult U_ASSERT_ONLY res;
+	const int size = uniformVar.size();
+	VkDescriptorSetLayoutBinding *layout_bindings = new VkDescriptorSetLayoutBinding[size];
+
+	for (int i = 0; i < size; i++) {
+		layout_bindings[i].binding = uniformVar[i].binding;
+		layout_bindings[i].descriptorType = uniformVar[i].descripterType;
+		layout_bindings[i].descriptorCount = uniformVar[i].descriptorCount;
+		layout_bindings[i].stageFlags = uniformVar[i].shaderFlags;
+		layout_bindings[i].pImmutableSamplers = NULL;
+	}
+
+	VkDescriptorSetLayoutCreateInfo descriptor_layout = {};
+	descriptor_layout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptor_layout.pNext = NULL;
+	descriptor_layout.bindingCount = size;
+	descriptor_layout.pBindings = layout_bindings;
+	num_descriptor_sets = 1;
+	desc_layout.resize(num_descriptor_sets);
+	res = vkCreateDescriptorSetLayout(device, &descriptor_layout, NULL, desc_layout.data());
+	assert(res == VK_SUCCESS);
+	/* Now use the descriptor layout to create a pipeline layout */
+	VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = {};
+	pPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pPipelineLayoutCreateInfo.pNext = NULL;
+	pPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+	pPipelineLayoutCreateInfo.pPushConstantRanges = NULL;
+	pPipelineLayoutCreateInfo.setLayoutCount = 1;
+	pPipelineLayoutCreateInfo.pSetLayouts = desc_layout.data();
+	res = vkCreatePipelineLayout(device,&pPipelineLayoutCreateInfo, NULL,&pipeline_layout);
+	assert(res == VK_SUCCESS);
+
 	return res;
 }
 

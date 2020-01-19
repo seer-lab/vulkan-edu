@@ -20,6 +20,7 @@ int main() {
 	createDepthBuffer(cmdbuffer);
 	glm::mat4 model = glm::mat4(1.0f);
 	Uniform_Data uData;
-	setUniformValue<glm::mat4>(model, uData);
+	setUniformValue<glm::mat4>(model, uData, 0, VK_SHADER_STAGE_VERTEX_BIT);
+	createDescripterLayout();
 
 }
