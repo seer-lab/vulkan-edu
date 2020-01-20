@@ -101,7 +101,7 @@ int num_descriptor_sets;
 VkPipelineLayout pipeline_layout;
 VkRenderPass render_pass;
 VkPipelineShaderStageCreateInfo shaderStages[2];
-VkFramebuffer framebuffers;
+VkFramebuffer *framebuffers;
 VkDescriptorPool desc_pool;
 
 std::vector<VkDescriptorSetLayout> desc_layout;
@@ -815,7 +815,7 @@ VkResult setUniformValue(T uniformVal,
 						uint32_t pBinding, 
 						VkShaderStageFlags sFlags,
 						uint32_t descriptorCount = 1) {
-	VkResult U_ASSERT_ONLY res;
+	VkResult U_ASSERT_ONLY res = VK_SUCCESS;
 	bool U_ASSERT_ONLY pass;
 
 	VkBufferCreateInfo buf_info = {};
@@ -828,49 +828,171 @@ VkResult setUniformValue(T uniformVal,
 	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	buf_info.flags = 0;
 
-	uniform_data ud = {};
+	uniform_data ud;
 	uniform_d.push_back(ud);
 	res = vkCreateBuffer(device, &buf_info, NULL, &uniform_d[uniform_d.size()].buf);
 	assert(res == VK_SUCCESS);
 
-	VkMemoryRequirements mem_reqs;
-	vkGetBufferMemoryRequirements(device, uniform_d[uniform_d.size()].buf,&mem_reqs);
+	//VkMemoryRequirements mem_reqs;
+	//vkGetBufferMemoryRequirements(device, uniform_d[uniform_d.size()].buf,&mem_reqs);
 
-	VkMemoryAllocateInfo alloc_info = {};
-	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	alloc_info.pNext = NULL;
-	alloc_info.memoryTypeIndex = 0;
+	//VkMemoryAllocateInfo alloc_info = {};
+	//alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	//alloc_info.pNext = NULL;
+	//alloc_info.memoryTypeIndex = 0;
 
-	alloc_info.allocationSize = mem_reqs.size;
-	pass = memory_type_from_properties(memory_properties, mem_reqs.memoryTypeBits,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		&alloc_info.memoryTypeIndex);
-	assert(pass && "No mappable, coherent memory");
-	
-	res = vkAllocateMemory(device, &alloc_info, NULL,&(&uniform_d[uniform_d.size()].mem));
-	assert(res == VK_SUCCESS);
-	
-	uint8_t* pData;
-	res = vkMapMemory(device, uniform_d[uniform_d.size()].mem, 0, mem_reqs.size, 0,(void**)&pData);
-	assert(res == VK_SUCCESS);
-	
-	memcpy(pData, &uniformVal, sizeof(uniformVal));
-	
-	vkUnmapMemory(device, uniform_d[uniform_d.size()].mem);
-	
-	res = vkBindBufferMemory(device, uniform_d[uniform_d.size()].buf, uniform_d[uniform_d.size()].mem, 0);
-	assert(res == VK_SUCCESS);
-	
-	uniformVariable uvar;
-	uvar.binding = pBinding;
-	uvar.shaderFlags = sFlags;
-	uvar.descripterType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uvar.descriptorCount = descriptorCount;
-	uniformVar.push_back(uvar);
+	//alloc_info.allocationSize = mem_reqs.size;
+	//pass = memory_type_from_properties(memory_properties, mem_reqs.memoryTypeBits,
+	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+	//	VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	//	&alloc_info.memoryTypeIndex);
+	//assert(pass && "No mappable, coherent memory");
+	//
+	//res = vkAllocateMemory(device, &alloc_info, NULL,&(&uniform_d[uniform_d.size()].mem));
+	//assert(res == VK_SUCCESS);
+	//
+	//uint8_t* pData;
+	//res = vkMapMemory(device, uniform_d[uniform_d.size()].mem, 0, mem_reqs.size, 0,(void**)&pData);
+	//assert(res == VK_SUCCESS);
+	//
+	//memcpy(pData, &uniformVal, sizeof(uniformVal));
+	//
+	//vkUnmapMemory(device, uniform_d[uniform_d.size()].mem);
+	//
+	//res = vkBindBufferMemory(device, uniform_d[uniform_d.size()].buf, uniform_d[uniform_d.size()].mem, 0);
+	//assert(res == VK_SUCCESS);
+	//
+	//uniformVariable uvar;
+	//uvar.binding = pBinding;
+	//uvar.shaderFlags = sFlags;
+	//uvar.descripterType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	//uvar.descriptorCount = descriptorCount;
+	//uniformVar.push_back(uvar);
 	
 	return res;
 }
+
+//
+//	VkMemoryRequirements mem_reqs;
+//	vkGetBufferMemoryRequirements(info.device, state.uniform_data.buf,
+//		&mem_reqs);
+//
+//	VkMemoryAllocateInfo alloc_info = {};
+//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+//	alloc_info.pNext = NULL;
+//	alloc_info.memoryTypeIndex = 0;
+//
+//	alloc_info.allocationSize = mem_reqs.size;
+//	pass = memory_type_from_properties(info, mem_reqs.memoryTypeBits,
+//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+//		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//		&alloc_info.memoryTypeIndex);
+//	assert(pass && "No mappable, coherent memory");
+//
+//	res = vkAllocateMemory(info.device, &alloc_info, NULL,
+//		&(state.uniform_data.mem));
+//	assert(res == VK_SUCCESS);
+//
+//	uint8_t* pData;
+//	res = vkMapMemory(info.device, state.uniform_data.mem, 0, mem_reqs.size, 0,
+//		(void**)&pData);
+//	assert(res == VK_SUCCESS);
+//
+//	memcpy(pData, &state.MVP, sizeof(state.MVP));
+//
+//	vkUnmapMemory(info.device, state.uniform_data.mem);
+//
+//	res = vkBindBufferMemory(info.device, state.uniform_data.buf,
+//		state.uniform_data.mem, 0);
+//	assert(res == VK_SUCCESS);
+//
+//	state.uniform_data.buffer_info.buffer = state.uniform_data.buf;
+//	state.uniform_data.buffer_info.offset = 0;
+//	state.uniform_data.buffer_info.range = sizeof(state.MVP);
+//
+//	glm::vec4 lightPos = glm::vec4(0.0, 1.0, 0.0, 1.0);
+//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//	buf_info.pNext = NULL;
+//	buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+//	buf_info.size = sizeof(lightPos);
+//	buf_info.queueFamilyIndexCount = 0;
+//	buf_info.pQueueFamilyIndices = NULL;
+//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//	buf_info.flags = 0;
+//
+//	res = vkCreateBuffer(info.device, &buf_info, NULL,
+//		&frag_uniform.buf);
+//	assert(res == VK_SUCCESS);
+//	vkGetBufferMemoryRequirements(info.device, frag_uniform.buf,
+//		&mem_reqs);
+//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+//	alloc_info.pNext = NULL;
+//	alloc_info.memoryTypeIndex = 0;
+//	alloc_info.allocationSize = mem_reqs.size;
+//	pass = memory_type_from_properties(info, mem_reqs.memoryTypeBits,
+//
+//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+//
+//		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//		&alloc_info.memoryTypeIndex);
+//	assert(pass && "No mappable, coherent memory");
+//	res = vkAllocateMemory(info.device, &alloc_info, NULL,
+//		&(frag_uniform.mem));
+//	assert(res == VK_SUCCESS);
+//	res = vkMapMemory(info.device, frag_uniform.mem, 0, mem_reqs.size,
+//		0,
+//		(void**)&pData);
+//	assert(res == VK_SUCCESS);
+//	memcpy(pData, &lightPos, sizeof(lightPos));
+//	vkUnmapMemory(info.device, frag_uniform.mem);
+//	res = vkBindBufferMemory(info.device, frag_uniform.buf,
+//		frag_uniform.mem, 0);
+//	assert(res == VK_SUCCESS);
+//	frag_uniform.buffer_info.buffer = frag_uniform.buf;
+//	frag_uniform.buffer_info.offset = 0;
+//	frag_uniform.buffer_info.range = sizeof(lightPos);
+//	frag_uniform.mem_size = mem_reqs.size;
+//
+//	*************************************************
+//
+//	glm::vec4 colour = glm::vec4(1.0, 1.0, 0.0, 1.0);
+//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//	buf_info.pNext = NULL;
+//	buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+//	buf_info.size = sizeof(colour);
+//	buf_info.queueFamilyIndexCount = 0;
+//	buf_info.pQueueFamilyIndices = NULL;
+//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//	buf_info.flags = 0;
+//
+//	res = vkCreateBuffer(info.device, &buf_info, NULL, &frag_uniform.buf);
+//	assert(res == VK_SUCCESS);
+//	vkGetBufferMemoryRequirements(info.device, frag_uniform.buf, &mem_reqs);
+//
+//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+//	alloc_info.pNext = NULL;
+//	alloc_info.memoryTypeIndex = 0;
+//	alloc_info.allocationSize = mem_reqs.size;
+//	pass = memory_type_from_properties(info, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//		&alloc_info.memoryTypeIndex);
+//
+//	assert(pass && "No mappable, coherent memory");
+//
+//	res = vkAllocateMemory(info.device, &alloc_info, NULL, &(frag_uniform.mem));
+//	assert(res == VK_SUCCESS);
+//	res = vkMapMemory(info.device, frag_uniform.mem, 0, mem_reqs.size, 0, (void**)&pData);
+//	assert(res == VK_SUCCESS);
+//	memcpy(pData, &colour, sizeof(colour));
+//	vkUnmapMemory(info.device, frag_uniform.mem);
+//	res = vkBindBufferMemory(info.device, frag_uniform.buf,
+//		frag_uniform.mem, 0);
+//	assert(res == VK_SUCCESS);
+//	frag_uniform.buffer_info.buffer = frag_uniform.buf;
+//	frag_uniform.buffer_info.offset = 0;
+//	frag_uniform.buffer_info.range = sizeof(colour);
+//	frag_uniform.mem_size = mem_reqs.size;
+//
+//}
 
 VkResult createDescripterLayout() {
 	VkResult U_ASSERT_ONLY res;
