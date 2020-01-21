@@ -23,6 +23,8 @@
 #define U_ASSERT_ONLY
 #endif
 
+typedef unsigned long long timestamp_t;
+
 typedef struct {
 	VkLayerProperties properties;
 	std::vector<VkExtensionProperties> extensions;
@@ -54,6 +56,15 @@ typedef struct uniform_data {
 	VkDescriptorBufferInfo buffer_info;
 } Uniform_Data;
 
+struct {
+	VkBuffer buf;
+	VkDeviceMemory mem;
+	VkDescriptorBufferInfo buffer_info;
+} vertex_buffer;
+
+float* vBuffer;
+VkBuffer iBuffer;
+
 VkResult init_global_extension_propertiesT(layer_properties& layer_props);
 VkResult globalLayerProperties();
 void deviceExtentionName();
@@ -63,6 +74,30 @@ VkResult createDeviceInfo();
 VkResult createSwapChainExtention();
 VkResult createDevice();
 VkResult createRenderPass(bool include_depth, bool clear = true, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+VkResult createCommandPool();
+VkResult createCommandBuffer(VkCommandBuffer& newCmd);
+VkResult execute_begin_command_buffer(VkCommandBuffer cmd);
+VkResult execute_end_command_buffer(VkCommandBuffer cmd);
+void createDeviceQueue();
+void createSwapChain(VkImageUsageFlags usageFlags);
+void createDepthBuffer(VkCommandBuffer cmd);
+template <class T>
+VkResult setUniformValue(T uniformVal,
+	Uniform_Data& uni_data,
+	uint32_t pBinding,
+	VkShaderStageFlags sFlags,
+	uint32_t descriptorCount = 1);
+VkResult createDescripterLayout();
+VkResult createRenderPass(bool include_depth, bool clear, VkImageLayout finalLayout);
+void init_shaders(const char* vertShaderText, const char* fragShaderText);
+VkResult init_framebuffers(bool include_depth);
+void createDescriptorPool(bool use_texture);
+void createDescriptorSet(bool use_texture);
+void init_pipeline_cache();
+void init_pipeline(VkBool32 include_depth, VkBool32 include_vi);
+void renderObjects(VkCommandBuffer cmd);
+void init_viewports(VkCommandBuffer cmd);
+void init_scissors(VkCommandBuffer cmd);
 
 //Make a utililty file;
 void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkCommandBuffer cmd);
@@ -72,9 +107,14 @@ void finalize_glslang();
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char* pshader, std::vector<unsigned int>& spirv);
 EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type);
 void init_resources(TBuiltInResource& Resources);
+timestamp_t get_milliseconds();
+void wait_seconds(int seconds);
 #define LAYER_COUNT 0
 #define LAYER_NAME NULL
 #define NUM_SAMPLES VK_SAMPLE_COUNT_1_BIT
+#define NUM_VIEWPORTS 1
+#define NUM_SCISSORS NUM_VIEWPORTS
+#define FENCE_TIMEOUT 100000000
 
 //TODO Change this such that it can handle Multiplatform code
 #define EXTENSION_COUNT 2
@@ -103,6 +143,12 @@ VkRenderPass render_pass;
 VkPipelineShaderStageCreateInfo shaderStages[2];
 VkFramebuffer *framebuffers;
 VkDescriptorPool desc_pool;
+VkPipelineCache pipelineCaches;
+VkVertexInputBindingDescription vi_binding;
+VkVertexInputAttributeDescription vi_attribs[2];
+VkPipeline pipeLines;
+VkViewport viewport;
+VkRect2D scissor;
 
 std::vector<VkDescriptorSetLayout> desc_layout;
 std::vector<const char*> device_extension_names;
@@ -809,13 +855,12 @@ void createDepthBuffer(VkCommandBuffer cmd) {
 	assert(res == VK_SUCCESS);
 }
 
-
 template <class T>
 VkResult setUniformValue(T uniformVal, 
 						Uniform_Data& uni_data, 
 						uint32_t pBinding, 
 						VkShaderStageFlags sFlags,
-						uint32_t descriptorCount = 1) {
+						uint32_t descriptorCount) {
 	VkResult U_ASSERT_ONLY res = VK_SUCCESS;
 	bool U_ASSERT_ONLY pass;
 
@@ -1106,22 +1151,320 @@ void createDescriptorSet(bool use_texture) {
 	res =
 		vkAllocateDescriptorSets(device, alloc_info, desc_set.data());
 	assert(res == VK_SUCCESS);
-	int size = uniformVar.size();
+	int size = uniformVar.size() - 1;
 
 	VkWriteDescriptorSet *writes = new VkWriteDescriptorSet[size];
 	for (int i = 0; i < size; i++) {
-		writes[0] = {};
-		writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[0].pNext = NULL;
-		writes[0].dstSet = desc_set[0];
-		writes[0].descriptorCount = 1;
-		writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		writes[0].pBufferInfo = &uniform_d[i].buffer_info;
-		writes[0].dstArrayElement = 0;
-		writes[0].dstBinding = 0;
+		writes[i] = {};
+		writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[i].pNext = NULL;
+		writes[i].dstSet = desc_set[0];
+		writes[i].descriptorCount = 1;
+		writes[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writes[i].pBufferInfo = &uniform_d[i].buffer_info;
+		writes[i].dstArrayElement = 0;
+		writes[i].dstBinding = 0;
 	}
 
 	vkUpdateDescriptorSets(device, size, writes, 0, NULL);
+}
+
+void init_pipeline_cache() {
+	VkResult U_ASSERT_ONLY res;
+
+	VkPipelineCacheCreateInfo pipelineCache;
+	pipelineCache.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+	pipelineCache.pNext = NULL;
+	pipelineCache.initialDataSize = 0;
+	pipelineCache.pInitialData = NULL;
+	pipelineCache.flags = 0;
+	res = vkCreatePipelineCache(device, &pipelineCache, NULL,
+		&pipelineCaches);
+	assert(res == VK_SUCCESS);
+}
+
+void init_pipeline(VkBool32 include_depth, VkBool32 include_vi) {
+	VkResult U_ASSERT_ONLY res;
+
+	VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
+	VkPipelineDynamicStateCreateInfo dynamicState = {};
+	memset(dynamicStateEnables, 0, sizeof dynamicStateEnables);
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.pNext = NULL;
+	dynamicState.pDynamicStates = dynamicStateEnables;
+	dynamicState.dynamicStateCount = 0;
+
+	VkPipelineVertexInputStateCreateInfo vi;
+	memset(&vi, 0, sizeof(vi));
+	vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	if (include_vi) {
+		vi.pNext = NULL;
+		vi.flags = 0;
+		vi.vertexBindingDescriptionCount = 1;
+		vi.pVertexBindingDescriptions = &vi_binding;
+		vi.vertexAttributeDescriptionCount = 2;
+		vi.pVertexAttributeDescriptions = vi_attribs;
+	}
+	VkPipelineInputAssemblyStateCreateInfo ia;
+	ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	ia.pNext = NULL;
+	ia.flags = 0;
+	ia.primitiveRestartEnable = VK_FALSE;
+	ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	VkPipelineRasterizationStateCreateInfo rs;
+	rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rs.pNext = NULL;
+	rs.flags = 0;
+	rs.polygonMode = VK_POLYGON_MODE_FILL;
+	rs.cullMode = VK_CULL_MODE_BACK_BIT;
+	rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rs.depthClampEnable = include_depth;
+	rs.rasterizerDiscardEnable = VK_FALSE;
+	rs.depthBiasEnable = VK_FALSE;
+	rs.depthBiasConstantFactor = 0;
+	rs.depthBiasClamp = 0;
+	rs.depthBiasSlopeFactor = 0;
+	rs.lineWidth = 1.0f;
+
+	VkPipelineColorBlendStateCreateInfo cb;
+	cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	cb.flags = 0;
+	cb.pNext = NULL;
+	VkPipelineColorBlendAttachmentState att_state[1];
+	att_state[0].colorWriteMask = 0xf;
+	att_state[0].blendEnable = VK_FALSE;
+	att_state[0].alphaBlendOp = VK_BLEND_OP_ADD;
+	att_state[0].colorBlendOp = VK_BLEND_OP_ADD;
+	att_state[0].srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	att_state[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	att_state[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	att_state[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	cb.attachmentCount = 1;
+	cb.pAttachments = att_state;
+	cb.logicOpEnable = VK_FALSE;
+	cb.logicOp = VK_LOGIC_OP_NO_OP;
+	cb.blendConstants[0] = 1.0f;
+	cb.blendConstants[1] = 1.0f;
+	cb.blendConstants[2] = 1.0f;
+	cb.blendConstants[3] = 1.0f;
+
+	VkPipelineViewportStateCreateInfo vp = {};
+	vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	vp.pNext = NULL;
+	vp.flags = 0;
+
+	// Temporary disabling dynamic viewport on Android because some of drivers doesn't
+	// support the feature.
+	VkViewport viewports;
+	viewports.minDepth = 0.0f;
+	viewports.maxDepth = 1.0f;
+	viewports.x = 0;
+	viewports.y = 0;
+	viewports.width = width;
+	viewports.height = height;
+	VkRect2D scissor;
+	scissor.extent.width = width;
+	scissor.extent.height = height;
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	vp.viewportCount = NUM_VIEWPORTS;
+	vp.scissorCount = NUM_SCISSORS;
+	vp.pScissors = &scissor;
+	vp.pViewports = &viewports;
+
+	VkPipelineDepthStencilStateCreateInfo ds;
+	ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	ds.pNext = NULL;
+	ds.flags = 0;
+	ds.depthTestEnable = include_depth;
+	ds.depthWriteEnable = include_depth;
+	ds.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	ds.depthBoundsTestEnable = VK_FALSE;
+	ds.stencilTestEnable = VK_FALSE;
+	ds.back.failOp = VK_STENCIL_OP_KEEP;
+	ds.back.passOp = VK_STENCIL_OP_KEEP;
+	ds.back.compareOp = VK_COMPARE_OP_ALWAYS;
+	ds.back.compareMask = 0;
+	ds.back.reference = 0;
+	ds.back.depthFailOp = VK_STENCIL_OP_KEEP;
+	ds.back.writeMask = 0;
+	ds.minDepthBounds = 0;
+	ds.maxDepthBounds = 0;
+	ds.stencilTestEnable = VK_FALSE;
+	ds.front = ds.back;
+
+	VkPipelineMultisampleStateCreateInfo ms;
+	ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	ms.pNext = NULL;
+	ms.flags = 0;
+	ms.pSampleMask = NULL;
+	ms.rasterizationSamples = NUM_SAMPLES;
+	ms.sampleShadingEnable = VK_FALSE;
+	ms.alphaToCoverageEnable = VK_FALSE;
+	ms.alphaToOneEnable = VK_FALSE;
+	ms.minSampleShading = 0.0;
+
+	VkGraphicsPipelineCreateInfo pipeline;
+	pipeline.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipeline.pNext = NULL;
+	pipeline.layout = pipeline_layout;
+	pipeline.basePipelineHandle = VK_NULL_HANDLE;
+	pipeline.basePipelineIndex = 0;
+	pipeline.flags = 0;
+	pipeline.pVertexInputState = &vi;
+	pipeline.pInputAssemblyState = &ia;
+	pipeline.pRasterizationState = &rs;
+	pipeline.pColorBlendState = &cb;
+	pipeline.pTessellationState = NULL;
+	pipeline.pMultisampleState = &ms;
+	pipeline.pDynamicState = &dynamicState;
+	pipeline.pViewportState = &vp;
+	pipeline.pDepthStencilState = &ds;
+	pipeline.pStages = shaderStages;
+	pipeline.stageCount = 2;
+	pipeline.renderPass = render_pass;
+	pipeline.subpass = 0;
+
+	res = vkCreateGraphicsPipelines(device, pipelineCaches, 1,
+		&pipeline, NULL, &pipeLines);
+	assert(res == VK_SUCCESS);
+}
+
+void renderObjects(VkCommandBuffer cmd) {
+	VkResult U_ASSERT_ONLY res;
+	VkClearValue clear_values[2];
+	clear_values[0].color.float32[0] = 0.2f;
+	clear_values[0].color.float32[1] = 0.2f;
+	clear_values[0].color.float32[2] = 0.2f;
+	clear_values[0].color.float32[3] = 0.2f;
+	clear_values[1].depthStencil.depth = 1.0f;
+	clear_values[1].depthStencil.stencil = 0;
+
+	VkSemaphore imageAcquiredSemaphore;
+	VkSemaphoreCreateInfo imageAcquiredSemaphoreCreateInfo;
+	imageAcquiredSemaphoreCreateInfo.sType =
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	imageAcquiredSemaphoreCreateInfo.pNext = NULL;
+	imageAcquiredSemaphoreCreateInfo.flags = 0;
+
+	res = vkCreateSemaphore(device, &imageAcquiredSemaphoreCreateInfo,
+		NULL, &imageAcquiredSemaphore);
+	assert(res == VK_SUCCESS);
+
+	// Get the index of the next available swapchain image:
+	res = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX,
+		imageAcquiredSemaphore, VK_NULL_HANDLE,
+		&current_buffer);
+	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
+	// return codes
+	assert(res == VK_SUCCESS);
+
+	set_image_layout(scBuffer[current_buffer].image,
+		VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, cmd);
+
+	VkRenderPassBeginInfo rp_begin;
+	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	rp_begin.pNext = NULL;
+	rp_begin.renderPass = render_pass;
+	rp_begin.framebuffer = framebuffers[current_buffer];
+	rp_begin.renderArea.offset.x = 0;
+	rp_begin.renderArea.offset.y = 0;
+	rp_begin.renderArea.extent.width = width;
+	rp_begin.renderArea.extent.height = height;
+	rp_begin.clearValueCount = 2;
+	rp_begin.pClearValues = clear_values;
+
+	vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLines);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		pipeline_layout, 0, num_descriptor_sets,
+		desc_set.data(), 0, NULL);
+
+	const VkDeviceSize offsets[1] = { 0 };
+	vkCmdBindVertexBuffers(cmd, 0, 1, &vertex_buffer.buf, offsets);
+
+	init_viewports(cmd);
+	init_scissors(cmd);
+
+	vkCmdBindIndexBuffer(cmd, iBuffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdDrawIndexed(cmd, 36, 1, 0, 0, 0);
+	vkCmdEndRenderPass(cmd);
+
+	res = vkEndCommandBuffer(cmd);
+	const VkCommandBuffer cmd_bufs[] = { cmd };
+	VkFenceCreateInfo fenceInfo;
+	VkFence drawFence;
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.pNext = NULL;
+	fenceInfo.flags = 0;
+	vkCreateFence(device, &fenceInfo, NULL, &drawFence);
+
+	VkPipelineStageFlags pipe_stage_flags =
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	VkSubmitInfo submit_info[1] = {};
+	submit_info[0].pNext = NULL;
+	submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit_info[0].waitSemaphoreCount = 1;
+	submit_info[0].pWaitSemaphores = &imageAcquiredSemaphore;
+	submit_info[0].pWaitDstStageMask = &pipe_stage_flags;
+	submit_info[0].commandBufferCount = 1;
+	submit_info[0].pCommandBuffers = cmd_bufs;
+	submit_info[0].signalSemaphoreCount = 0;
+	submit_info[0].pSignalSemaphores = NULL;
+
+	/* Queue the command buffer for execution */
+	res = vkQueueSubmit(graphics_queue, 1, submit_info, drawFence);
+	assert(res == VK_SUCCESS);
+
+	/* Now present the image in the window */
+
+	VkPresentInfoKHR present;
+	present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	present.pNext = NULL;
+	present.swapchainCount = 1;
+	present.pSwapchains = &swap_chain;
+	present.pImageIndices = &current_buffer;
+	present.pWaitSemaphores = NULL;
+	present.waitSemaphoreCount = 0;
+	present.pResults = NULL;
+
+	/* Make sure command buffer is finished before presenting */
+	do {
+		res =
+			vkWaitForFences(device, 1, &drawFence, VK_TRUE, FENCE_TIMEOUT);
+	} while (res == VK_TIMEOUT);
+
+	assert(res == VK_SUCCESS);
+	res = vkQueuePresentKHR(present_queue, &present);
+	assert(res == VK_SUCCESS);
+
+	/* VULKAN_KEY_END */
+
+	std::cout << "ready to sleep\n";
+
+	wait_seconds(5);
+
+}
+
+void init_viewports(VkCommandBuffer cmd) {
+	viewport.height = (float)height;
+	viewport.width = (float)width;
+	viewport.minDepth = (float)0.0f;
+	viewport.maxDepth = (float)1.0f;
+	viewport.x = 0;
+	viewport.y = 0;
+	vkCmdSetViewport(cmd, 0, NUM_VIEWPORTS, &viewport);
+}
+
+void init_scissors(VkCommandBuffer cmd) {
+	scissor.extent.width = width;
+	scissor.extent.height = height;
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	vkCmdSetScissor(cmd, 0, NUM_SCISSORS, &scissor);
 }
 
 /*------------------------------------------------------------------------------------------------->*/
@@ -1379,4 +1722,31 @@ void init_resources(TBuiltInResource& Resources) {
 	Resources.limits.generalSamplerIndexing = 1;
 	Resources.limits.generalVariableIndexing = 1;
 	Resources.limits.generalConstantMatrixVectorIndexing = 1;
+}
+
+void wait_seconds(int seconds) {
+#ifdef WIN32
+	Sleep(seconds * 1000);
+#else
+	sleep(seconds);
+#endif
+}
+
+timestamp_t get_milliseconds() {
+#ifdef WIN32
+	LARGE_INTEGER frequency;
+	BOOL useQPC = QueryPerformanceFrequency(&frequency);
+	if (useQPC) {
+		LARGE_INTEGER now;
+		QueryPerformanceCounter(&now);
+		return (1000LL * now.QuadPart) / frequency.QuadPart;
+	}
+	else {
+		return GetTickCount();
+	}
+#else
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	return (now.tv_usec / 1000) + (timestamp_t)now.tv_sec;
+#endif
 }

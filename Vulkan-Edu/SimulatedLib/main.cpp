@@ -35,17 +35,6 @@ static const char* fragShaderText =
 "   outColor = color;\n"
 "}\n";
 
-struct {
-	VkBuffer buf;
-	VkDeviceMemory mem;
-	VkDescriptorBufferInfo buffer_info;
-} vertex_buffer;
-VkVertexInputBindingDescription vi_binding;
-VkVertexInputAttributeDescription vi_attribs[2];
-
-float *vBuffer;
-VkBuffer iBuffer;
-
 VkResult mesh_init() {
 	int i;
 	int k;
@@ -247,8 +236,11 @@ int main() {
 	createDescripterLayout();
 	createRenderPass(depthPresent);
 	init_shaders(vertShaderText, fragShaderText);
-
 	mesh_init();
 	init_vertex_buffer(vBuffer, 7 * 8 * sizeof(float), 7 * sizeof(float), false);
-
+	createDescriptorPool(false);
+	createDescriptorSet(false);
+	init_pipeline_cache();
+	init_pipeline(depthPresent, true);
+	renderObjects(cmdbuffer);
 }
