@@ -1103,7 +1103,7 @@ VkResult init_framebuffers( bool include_depth) {
 
 	uint32_t i;
 
-	framebuffers = (VkFramebuffer*)malloc(swapchainImageCount * sizeof(VkFramebuffer));
+	framebuffers = (VkFramebuffer*)malloc(swapchainImageCount *sizeof(VkFramebuffer));
 
 	for (i = 0; i < swapchainImageCount; i++) {
 		attachments[0] = scBuffer[i].view;

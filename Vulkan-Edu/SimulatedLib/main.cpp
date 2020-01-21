@@ -217,7 +217,6 @@ int main() {
 
 	state.MVP = state.Clip * state.Projection * state.View * state.Model;
 
-
 	res = createInstance();
 	res = createDeviceInfo();
 	createWindowContext(512, 512);
@@ -236,6 +235,7 @@ int main() {
 	createDescripterLayout();
 	createRenderPass(depthPresent);
 	init_shaders(vertShaderText, fragShaderText);
+	init_framebuffers(depthPresent);
 	mesh_init();
 	init_vertex_buffer(vBuffer, 7 * 8 * sizeof(float), 7 * sizeof(float), false);
 	createDescriptorPool(false);
