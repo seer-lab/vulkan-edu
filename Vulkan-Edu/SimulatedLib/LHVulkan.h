@@ -8,10 +8,11 @@
 #include <SPIRV/GlslangToSpv.h>
 #include <iostream>
 
+#include "glfw_m/include/GLFW_M/glfw3.h"
+
 #if _WIN32
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
-#include "Window_Factory.h"
 #endif
 
 #include <string>
@@ -312,6 +313,12 @@ VkResult createInstance(std::string appName,std::string engineName) {
 	VkResult res = vkCreateInstance(&inst_info, NULL, &inst);
 	assert(res == VK_SUCCESS);
 
+	for (int i = 0; i < instance_extension_names.size(); i++) {
+		std::cout << instance_extension_names[i] << std::endl;
+	}
+
+	std::cout << "\n";
+
 	return res;
 }
 
@@ -502,6 +509,28 @@ void destroy_window() {
 	xcb_disconnect(connection);
 }
 #endif
+
+void createWindowContext_2(int w, int h) {
+	if (!glfwInit()) {
+		std::cout << "Error INIT FAILED\n";
+		exit(-1);
+	}
+	if (glfwVulkanSupported()) {
+		std::cout << "Vulkan is supported\n";
+	}
+	else {
+		std::cout << "Error Vulkan is not supported\n";
+	}
+
+	uint32_t ext_count;
+	const char** extName = glfwGetRequiredInstanceExtensions(&ext_count);
+
+	for (int i = 0; i < ext_count; i++) {
+		std::cout << extName[i] << std::endl;
+	}
+
+	GLFWwindow* window = glfwCreateWindow(w, h, name.c_str() , NULL, NULL);
+}
 
 
 VkResult createSwapChainExtention() {

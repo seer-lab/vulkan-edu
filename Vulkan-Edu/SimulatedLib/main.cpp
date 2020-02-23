@@ -1,3 +1,4 @@
+#define GLFW_INCLUDE_VULKAN
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -537,6 +538,7 @@ int main() {
 	createDeviceInfo();
 	init_connection();
 	createWindowContext(512, 512);
+	createWindowContext_2(512, 512);
 	createSwapChainExtention();
 	createDevice();
 
@@ -562,6 +564,8 @@ int main() {
 	renderObject(state);
 
 	//	destroy_instance();
+
+
 	return 0;
 	
 }

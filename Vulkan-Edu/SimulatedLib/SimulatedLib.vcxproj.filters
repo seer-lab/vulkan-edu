@@ -16,10 +16,118 @@
     <Filter Include="Other Source File">
       <UniqueIdentifier>{a35f53f5-6cba-4b76-810e-681bfa50babb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Display GLFW_M">
+      <UniqueIdentifier>{a788e2ad-5a0c-498e-8b94-1e90ec9d86ab}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\cocoa_time.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\egl_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\glx_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\input.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\linux_joystick.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\null_init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\null_joystick.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\null_monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\null_window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\osmesa_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\posix_thread.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\posix_time.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\vulkan.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\wgl_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_joystick.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_thread.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_time.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\wl_init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\wl_monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\wl_window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\x11_init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\x11_monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\x11_window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\xkb_unicode.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\deps\getopt.c">
+      <Filter>Other Source File</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\deps\glad_gl.c">
+      <Filter>Other Source File</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\deps\glad_vulkan.c">
+      <Filter>Other Source File</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\deps\tinycthread.c">
+      <Filter>Other Source File</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -29,8 +137,113 @@
     <ClInclude Include="LHVulkan.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Window_Factory.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="glfw_m\include\GLFW_M\glfw3.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\include\GLFW_M\glfw3native.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\cocoa_joystick.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\cocoa_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\egl_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\glx_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\internal.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\linux_joystick.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\mappings.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\nsgl_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\null_joystick.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\null_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\osmesa_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\posix_thread.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\posix_time.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\wgl_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\win32_joystick.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\win32_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\wl_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\x11_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\xkb_unicode.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\glfw_config.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\getopt.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\glad\gl.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\glad\khrplatform.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\glad\vk_platform.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\glad\vulkan.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\linmath.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\mingw\dinput.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\mingw\xinput.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\mingw\_mingw_dxhelper.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\nuklear.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\nuklear_glfw_gl2.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\stb_image_write.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\tinycthread.h">
+      <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\deps\vs2008\stdint.h">
+      <Filter>Other Source File</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
