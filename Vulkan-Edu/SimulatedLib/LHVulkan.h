@@ -4,11 +4,14 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
 
+#define GLFW_EXPOSE_NATIVE_WIN32
+
 #include <vulkan/vulkan.h>
 #include <SPIRV/GlslangToSpv.h>
 #include <iostream>
 
 #include "glfw_m/include/GLFW_M/glfw3.h"
+#include "glfw_m/include/GLFW_M/glfw3native.h"
 
 #if _WIN32
 #include <Windows.h>
@@ -167,6 +170,7 @@ std::vector<uniformVariable> uniformVar;
 std::vector<uniform_data> uniform_d;
 
 //TODO MAKE MULTIPLATFORM (Surface Creation)
+GLFWwindow* windows;
 static HINSTANCE connection;
 static HWND window;
 long info;
@@ -284,10 +288,25 @@ void deviceExtentionName() {
 
 VkResult createInstance(std::string appName,std::string engineName) {
 	globalLayerProperties();
-	instanceExtentionName();
 	deviceExtentionName();
 
 	name = appName;
+
+	if (!glfwInit()) {
+		std::cerr << "Error INIT FAILED\n";
+		exit(-1);
+	}
+	if (!glfwVulkanSupported()) {
+		std::cerr << "Vulkan is not supported\n";
+	}
+
+	uint32_t ext_count;
+	const char** extName = glfwGetRequiredInstanceExtensions(&ext_count);
+
+	for (int i = 0; i < ext_count; i++) {
+		instance_extension_names.push_back(extName[i]);
+		std::cout << instance_extension_names[i] << std::endl;
+	}
 
 	VkApplicationInfo app_info = {};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -313,19 +332,13 @@ VkResult createInstance(std::string appName,std::string engineName) {
 	VkResult res = vkCreateInstance(&inst_info, NULL, &inst);
 	assert(res == VK_SUCCESS);
 
-	for (int i = 0; i < instance_extension_names.size(); i++) {
-		std::cout << instance_extension_names[i] << std::endl;
-	}
-
-	std::cout << "\n";
-
 	return res;
 }
 
 //TODO Make this function select anyother GPU for the user if the user chooses to do so
 VkResult createDeviceInfo() {
 
-	uint32_t gpu_count = 1;
+	uint32_t gpu_count = 0;
 	uint32_t const U_ASSERT_ONLY req_count = gpu_count;
 	VkResult res = vkEnumeratePhysicalDevices(inst, &gpu_count, NULL);
 	assert(gpu_count);
@@ -335,14 +348,12 @@ VkResult createDeviceInfo() {
 	res = vkEnumeratePhysicalDevices(inst, &gpu_count, gpus.data());
 	assert(!res && gpu_count >= req_count);
 
-	vkGetPhysicalDeviceQueueFamilyProperties(gpus[0],
-		&queue_family_count, NULL);
+	vkGetPhysicalDeviceQueueFamilyProperties(gpus[0],&queue_family_count, NULL);
 	assert(queue_family_count >= 1);
 
 	queue_props.resize(queue_family_count);
 
-	vkGetPhysicalDeviceQueueFamilyProperties(
-		gpus[0], &queue_family_count, queue_props.data());
+	vkGetPhysicalDeviceQueueFamilyProperties(gpus[0], &queue_family_count, queue_props.data());
 	assert(queue_family_count >= 1);
 
 	/* This is as good a place as any to do this */
@@ -352,186 +363,19 @@ VkResult createDeviceInfo() {
 	return res;
 }
 
-void init_connection() {
-#if !defined(_WIN32)
-	const xcb_setup_t* setup;
-	xcb_screen_iterator_t iter;
-	int scr;
-
-	connection = xcb_connect(NULL, &scr);
-	if (connection == NULL || xcb_connection_has_error(connection)) {
-		std::cout << "Cannot find a compatible Vulkan ICD.\n";
-		exit(-1);
-	}
-
-	setup = xcb_get_setup(connection);
-	iter = xcb_setup_roots_iterator(setup);
-	while (scr-- > 0)
-		xcb_screen_next(&iter);
-
-	screen = iter.data;
-#endif //__Android__
-}
-#ifdef _WIN32
-
-// MS-Windows event handling function:
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	struct sample_info* info = reinterpret_cast<struct sample_info*>(
-		GetWindowLongPtr(hWnd, GWLP_USERDATA));
-
-	switch (uMsg) {
-	case WM_CLOSE:
-		PostQuitMessage(0);
-		break;
-	case WM_PAINT:
-		return 0;
-	default:
-		break;
-	}
-	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
-}
-
 void createWindowContext(int w, int h) {
+
 	width = w;
 	height = h;
-	WNDCLASSEX win_class;
-	assert(width > 0);
-	assert(height > 0);
+ 
+	glfwDefaultWindowHints();
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	windows = glfwCreateWindow(w, h, name.c_str() , NULL, NULL);
 
-	connection = GetModuleHandle(NULL);
-
-	// Initialize the window class structure:
-	win_class.cbSize = sizeof(WNDCLASSEX);
-	win_class.style = CS_HREDRAW | CS_VREDRAW;
-	win_class.lpfnWndProc = WndProc;
-	win_class.cbClsExtra = 0;
-	win_class.cbWndExtra = 0;
-	win_class.hInstance = connection; // hInstance
-	win_class.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	win_class.hCursor = LoadCursor(NULL, IDC_ARROW);
-	win_class.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
-	win_class.lpszMenuName = NULL;
-	wchar_t wname[256];
-	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, name.c_str(), -1, wname, 256);
-	win_class.lpszClassName = (LPCWSTR)wname;
-	win_class.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
-	// Register window class:
-	if (!RegisterClassEx(&win_class)) {
-		// It didn't work, so try to give a useful error:
-		printf("Unexpected error trying to start the application!\n");
-		fflush(stdout);
-		exit(1);
-	}
-	// Create window with the registered class:
-	RECT wr = { 0, 0, width, height };
-	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-	window = CreateWindowEx(0,
-		(LPCWSTR)wname,            // class name
-		(LPCWSTR)wname,            // app name
-		WS_OVERLAPPEDWINDOW | // window style
-		WS_VISIBLE | WS_SYSMENU,
-		100, 100,           // x/y coords
-		wr.right - wr.left, // width
-		wr.bottom - wr.top, // height
-		NULL,               // handle to parent
-		NULL,               // handle to menu
-		connection,    // hInstance
-		NULL);              // no extra parameters
-	if (!window) {
-		// It didn't work, so try to give a useful error:
-		printf("Cannot create a window in which to draw!\n");
-		fflush(stdout);
-		exit(1);
-	}
-	SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)&info);
-}
-
-void destroy_window() {
-	vkDestroySurfaceKHR(inst, surface, NULL);
-	DestroyWindow(window);
-}
-#else
-void createWindowContext(int w, int h) {
-	width = w;
-	height = h;
-
-	assert(width > 0);
-	assert(height > 0);
-
-	uint32_t value_mask, value_list[32];
-
-	window = xcb_generate_id(connection);
-
-	value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-	value_list[0] = screen->black_pixel;
-	value_list[1] = XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_EXPOSURE;
-
-	xcb_create_window(connection, XCB_COPY_FROM_PARENT, window,
-		screen->root, 0, 0, width, height, 0,
-		XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual,
-		value_mask, value_list);
-
-	/* Magic code that will send notification when window is destroyed */
-	xcb_intern_atom_cookie_t cookie =
-		xcb_intern_atom(connection, 1, 12, "WM_PROTOCOLS");
-	xcb_intern_atom_reply_t* reply =
-		xcb_intern_atom_reply(connection, cookie, 0);
-
-	xcb_intern_atom_cookie_t cookie2 =
-		xcb_intern_atom(connection, 0, 16, "WM_DELETE_WINDOW");
-	atom_wm_delete_window =
-		xcb_intern_atom_reply(connection, cookie2, 0);
-
-	xcb_change_property(connection, XCB_PROP_MODE_REPLACE, window,
-		(*reply).atom, 4, 32, 1,
-		&(*atom_wm_delete_window).atom);
-	free(reply);
-
-	xcb_map_window(connection, window);
-
-	// Force the x/y coordinates to 100,100 results are identical in consecutive
-	// runs
-	const uint32_t coords[] = { 100, 100 };
-	xcb_configure_window(connection, window,
-		XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
-	xcb_flush(connection);
-
-	xcb_generic_event_t* e;
-	while ((e = xcb_wait_for_event(connection))) {
-		if ((e->response_type & ~0x80) == XCB_EXPOSE)
-			break;
+	if (glfwCreateWindowSurface(inst, windows, nullptr, &surface) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create window surface!");
 	}
 }
-
-void destroy_window() {
-	vkDestroySurfaceKHR(inst, surface, NULL);
-	xcb_destroy_window(connection, window);
-	xcb_disconnect(connection);
-}
-#endif
-
-void createWindowContext_2(int w, int h) {
-	if (!glfwInit()) {
-		std::cout << "Error INIT FAILED\n";
-		exit(-1);
-	}
-	if (glfwVulkanSupported()) {
-		std::cout << "Vulkan is supported\n";
-	}
-	else {
-		std::cout << "Error Vulkan is not supported\n";
-	}
-
-	uint32_t ext_count;
-	const char** extName = glfwGetRequiredInstanceExtensions(&ext_count);
-
-	for (int i = 0; i < ext_count; i++) {
-		std::cout << extName[i] << std::endl;
-	}
-
-	GLFWwindow* window = glfwCreateWindow(w, h, name.c_str() , NULL, NULL);
-}
-
 
 VkResult createSwapChainExtention() {
 	VkResult U_ASSERT_ONLY res;
@@ -541,8 +385,8 @@ VkResult createSwapChainExtention() {
 	VkWin32SurfaceCreateInfoKHR createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	createInfo.pNext = NULL;
-	createInfo.hinstance = connection;
-	createInfo.hwnd = window;
+	createInfo.hinstance = GetModuleHandle(NULL);
+	createInfo.hwnd = glfwGetWin32Window(windows);
 	res = vkCreateWin32SurfaceKHR(inst, &createInfo,NULL, &surface);
 #else  // !__ANDROID__ && !_WIN32
 	VkXcbSurfaceCreateInfoKHR createInfo = {};
@@ -723,8 +567,8 @@ void createSwapChain(VkImageUsageFlags usageFlags) {
 
 	VkResult U_ASSERT_ONLY res;
 	VkSurfaceCapabilitiesKHR surfCapabilities;
-
-	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpus[0], surface,&surfCapabilities);
+	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpus[0], surface, &surfCapabilities);
+	
 	assert(res == VK_SUCCESS);
 
 	uint32_t presentModeCount;
@@ -1331,155 +1175,7 @@ void createPipeLineCache() {
 		&pipelineCaches);
 	assert(res == VK_SUCCESS);
 }
-//
-//void init_pipeline(VkBool32 include_depth, VkBool32 include_vi) {
-//	VkResult U_ASSERT_ONLY res;
-//
-//	VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
-//	VkPipelineDynamicStateCreateInfo dynamicState = {};
-//	memset(dynamicStateEnables, 0, sizeof dynamicStateEnables);
-//	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-//	dynamicState.pNext = NULL;
-//	dynamicState.pDynamicStates = dynamicStateEnables;
-//	dynamicState.dynamicStateCount = 0;
-//
-//	VkPipelineVertexInputStateCreateInfo vi;
-//	memset(&vi, 0, sizeof(vi));
-//	vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-//	if (include_vi) {
-//		vi.pNext = NULL;
-//		vi.flags = 0;
-//		vi.vertexBindingDescriptionCount = 1;
-//		vi.pVertexBindingDescriptions = &vi_binding;
-//		vi.vertexAttributeDescriptionCount = 2;
-//		vi.pVertexAttributeDescriptions = vi_attribs;
-//	}
-//	VkPipelineInputAssemblyStateCreateInfo ia;
-//	ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-//	ia.pNext = NULL;
-//	ia.flags = 0;
-//	ia.primitiveRestartEnable = VK_FALSE;
-//	ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-//
-//	VkPipelineRasterizationStateCreateInfo rs;
-//	rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-//	rs.pNext = NULL;
-//	rs.flags = 0;
-//	rs.polygonMode = VK_POLYGON_MODE_FILL;
-//	rs.cullMode = VK_CULL_MODE_BACK_BIT;
-//	rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
-//	rs.depthClampEnable = include_depth;
-//	rs.rasterizerDiscardEnable = VK_FALSE;
-//	rs.depthBiasEnable = VK_FALSE;
-//	rs.depthBiasConstantFactor = 0;
-//	rs.depthBiasClamp = 0;
-//	rs.depthBiasSlopeFactor = 0;
-//	rs.lineWidth = 1.0f;
-//
-//	VkPipelineColorBlendStateCreateInfo cb;
-//	cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-//	cb.flags = 0;
-//	cb.pNext = NULL;
-//	VkPipelineColorBlendAttachmentState att_state[1];
-//	att_state[0].colorWriteMask = 0xf;
-//	att_state[0].blendEnable = VK_FALSE;
-//	att_state[0].alphaBlendOp = VK_BLEND_OP_ADD;
-//	att_state[0].colorBlendOp = VK_BLEND_OP_ADD;
-//	att_state[0].srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	att_state[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	att_state[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	att_state[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	cb.attachmentCount = 1;
-//	cb.pAttachments = att_state;
-//	cb.logicOpEnable = VK_FALSE;
-//	cb.logicOp = VK_LOGIC_OP_NO_OP;
-//	cb.blendConstants[0] = 1.0f;
-//	cb.blendConstants[1] = 1.0f;
-//	cb.blendConstants[2] = 1.0f;
-//	cb.blendConstants[3] = 1.0f;
-//
-//	VkPipelineViewportStateCreateInfo vp = {};
-//	vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-//	vp.pNext = NULL;
-//	vp.flags = 0;
-//
-//	// Temporary disabling dynamic viewport on Android because some of drivers doesn't
-//	// support the feature.
-//	VkViewport viewports;
-//	viewports.minDepth = 0.0f;
-//	viewports.maxDepth = 1.0f;
-//	viewports.x = 0;
-//	viewports.y = 0;
-//	viewports.width = width;
-//	viewports.height = height;
-//	VkRect2D scissor;
-//	scissor.extent.width = width;
-//	scissor.extent.height = height;
-//	scissor.offset.x = 0;
-//	scissor.offset.y = 0;
-//	vp.viewportCount = NUM_VIEWPORTS;
-//	vp.scissorCount = NUM_SCISSORS;
-//	vp.pScissors = &scissor;
-//	vp.pViewports = &viewports;
-//
-//	VkPipelineDepthStencilStateCreateInfo ds;
-//	ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-//	ds.pNext = NULL;
-//	ds.flags = 0;
-//	ds.depthTestEnable = include_depth;
-//	ds.depthWriteEnable = include_depth;
-//	ds.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-//	ds.depthBoundsTestEnable = VK_FALSE;
-//	ds.stencilTestEnable = VK_FALSE;
-//	ds.back.failOp = VK_STENCIL_OP_KEEP;
-//	ds.back.passOp = VK_STENCIL_OP_KEEP;
-//	ds.back.compareOp = VK_COMPARE_OP_ALWAYS;
-//	ds.back.compareMask = 0;
-//	ds.back.reference = 0;
-//	ds.back.depthFailOp = VK_STENCIL_OP_KEEP;
-//	ds.back.writeMask = 0;
-//	ds.minDepthBounds = 0;
-//	ds.maxDepthBounds = 0;
-//	ds.stencilTestEnable = VK_FALSE;
-//	ds.front = ds.back;
-//
-//	VkPipelineMultisampleStateCreateInfo ms;
-//	ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-//	ms.pNext = NULL;
-//	ms.flags = 0;
-//	ms.pSampleMask = NULL;
-//	ms.rasterizationSamples = NUM_SAMPLES;
-//	ms.sampleShadingEnable = VK_FALSE;
-//	ms.alphaToCoverageEnable = VK_FALSE;
-//	ms.alphaToOneEnable = VK_FALSE;
-//	ms.minSampleShading = 0.0;
-//
-//	VkGraphicsPipelineCreateInfo pipeline;
-//	pipeline.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-//	pipeline.pNext = NULL;
-//	pipeline.layout = pipeline_layout;
-//	pipeline.basePipelineHandle = VK_NULL_HANDLE;
-//	pipeline.basePipelineIndex = 0;
-//	pipeline.flags = 0;
-//	pipeline.pVertexInputState = &vi;
-//	pipeline.pInputAssemblyState = &ia;
-//	pipeline.pRasterizationState = &rs;
-//	pipeline.pColorBlendState = &cb;
-//	pipeline.pTessellationState = NULL;
-//	pipeline.pMultisampleState = &ms;
-//	pipeline.pDynamicState = &dynamicState;
-//	pipeline.pViewportState = &vp;
-//	pipeline.pDepthStencilState = &ds;
-//	pipeline.pStages = shaderStages;
-//	pipeline.stageCount = 2;
-//	pipeline.renderPass = render_pass;
-//	pipeline.subpass = 0;
-//
-//	res = vkCreateGraphicsPipelines(device, pipelineCaches, 1,
-//		&pipeline, NULL, &pipeLines);
-//	assert(res == VK_SUCCESS);
-//}
-//
+
 
 void renderObject(struct AppState& state) {
 	VkResult U_ASSERT_ONLY res;
@@ -1544,6 +1240,8 @@ void renderObject(struct AppState& state) {
 	vkCmdEndRenderPass(state.cmd);
 
 	res = vkEndCommandBuffer(state.cmd);
+	assert(res == VK_SUCCESS);
+
 	const VkCommandBuffer cmd_bufs[] = { state.cmd };
 	VkFenceCreateInfo fenceInfo;
 	VkFence drawFence;
@@ -1552,50 +1250,51 @@ void renderObject(struct AppState& state) {
 	fenceInfo.flags = 0;
 	vkCreateFence(device, &fenceInfo, NULL, &drawFence);
 
-	VkPipelineStageFlags pipe_stage_flags =
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	VkSubmitInfo submit_info[1] = {};
-	submit_info[0].pNext = NULL;
-	submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit_info[0].waitSemaphoreCount = 1;
-	submit_info[0].pWaitSemaphores = &imageAcquiredSemaphore;
-	submit_info[0].pWaitDstStageMask = &pipe_stage_flags;
-	submit_info[0].commandBufferCount = 1;
-	submit_info[0].pCommandBuffers = cmd_bufs;
-	submit_info[0].signalSemaphoreCount = 0;
-	submit_info[0].pSignalSemaphores = NULL;
+	while (!glfwWindowShouldClose(windows)) {
+		glfwPollEvents();
 
-	/* Queue the command buffer for execution */
-	res = vkQueueSubmit(graphics_queue, 1, submit_info, drawFence);
-	assert(res == VK_SUCCESS);
+		vkWaitForFences(device, 1, &drawFence, VK_TRUE, FENCE_TIMEOUT);
 
-	/* Now present the image in the window */
+		uint32_t imageIndex;
+		res = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, imageAcquiredSemaphore, VK_NULL_HANDLE,&current_buffer);
 
-	VkPresentInfoKHR present;
-	present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	present.pNext = NULL;
-	present.swapchainCount = 1;
-	present.pSwapchains = &swap_chain;
-	present.pImageIndices = &current_buffer;
-	present.pWaitSemaphores = NULL;
-	present.waitSemaphoreCount = 0;
-	present.pResults = NULL;
+		VkPipelineStageFlags pipe_stage_flags =
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		VkSubmitInfo submit_info[1] = {};
+		submit_info[0].pNext = NULL;
+		submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info[0].waitSemaphoreCount = 1;
+		submit_info[0].pWaitSemaphores = &imageAcquiredSemaphore;
+		submit_info[0].pWaitDstStageMask = &pipe_stage_flags;
+		submit_info[0].commandBufferCount = 1;
+		submit_info[0].pCommandBuffers = cmd_bufs;
+		submit_info[0].signalSemaphoreCount = 0;
+		submit_info[0].pSignalSemaphores = NULL;
 
-	/* Make sure command buffer is finished before presenting */
-	do {
-		res =
-			vkWaitForFences(device, 1, &drawFence, VK_TRUE, FENCE_TIMEOUT);
-	} while (res == VK_TIMEOUT);
+		vkResetFences(device, 1, &drawFence);
 
-	assert(res == VK_SUCCESS);
-	res = vkQueuePresentKHR(present_queue, &present);
-	assert(res == VK_SUCCESS);
+		/* Queue the command buffer for execution */
+		res = vkQueueSubmit(graphics_queue, 1, submit_info, drawFence);
+		assert(res == VK_SUCCESS);
 
-	/* VULKAN_KEY_END */
+		/* Now present the image in the window */
 
-	//cout << "ready to sleep" << endl;
+		VkPresentInfoKHR present;
+		present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		present.pNext = NULL;
+		present.swapchainCount = 1;
+		present.pSwapchains = &swap_chain;
+		present.pImageIndices = &current_buffer;
+		present.pWaitSemaphores = NULL;
+		present.waitSemaphoreCount = 0;
+		present.pResults = NULL;
 
-	wait_seconds(5);
+		assert(res == VK_SUCCESS);
+		res = vkQueuePresentKHR(present_queue, &present);
+		assert(res == VK_SUCCESS);
+
+	}
+
 }
 
 void init_viewports(VkCommandBuffer cmd) {

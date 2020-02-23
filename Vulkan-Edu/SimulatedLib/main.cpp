@@ -536,9 +536,7 @@ int main() {
 
 	createInstance("Sample Program");
 	createDeviceInfo();
-	init_connection();
 	createWindowContext(512, 512);
-	createWindowContext_2(512, 512);
 	createSwapChainExtention();
 	createDevice();
 
@@ -569,3 +567,4 @@ int main() {
 	return 0;
 	
 }
+
