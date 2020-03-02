@@ -275,7 +275,6 @@ typedef struct VkWin32SurfaceCreateInfoKHR
 typedef VkResult (APIENTRY *PFN_vkCreateWin32SurfaceKHR)(VkInstance,const VkWin32SurfaceCreateInfoKHR*,const VkAllocationCallbacks*,VkSurfaceKHR*);
 typedef VkBool32 (APIENTRY *PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)(VkPhysicalDevice,uint32_t);
 
-#include "win32_joystick.h"
 #include "wgl_context.h"
 #include "egl_context.h"
 #include "osmesa_context.h"

@@ -1,4 +1,12 @@
+#ifndef L_H_VULKAN_H
+#define L_H_VULKAN_H
+
+
 #define _CRT_SECURE_NO_WARNINGS
+
+#ifndef NOMINMAX
+#define NOMINMAX /* Don't let Windows define min() or max() */
+#endif
 
 #ifndef VK_USE_PLATFORM_WIN32_KHR
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -6,10 +14,13 @@
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 
+#include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 #include <SPIRV/GlslangToSpv.h>
 #include <iostream>
+#include <limits>
 
+//#define GLFW_INCLUDE_VULKAN
 #include "glfw_m/include/GLFW_M/glfw3.h"
 #include "glfw_m/include/GLFW_M/glfw3native.h"
 
@@ -73,8 +84,8 @@ VkBuffer iBuffer;
 
 VkResult init_global_extension_propertiesT(layer_properties& layer_props);
 VkResult globalLayerProperties();
+void vulkanInit();
 void deviceExtentionName();
-void instanceExtentionName();
 VkResult createInstance(std::string appName = "Sample App", std::string engineName = "Sample Engine");
 VkResult createDeviceInfo();
 VkResult createSwapChainExtention();
@@ -87,25 +98,26 @@ VkResult execute_end_command_buffer(VkCommandBuffer cmd);
 void createDeviceQueue();
 void createSwapChain(VkImageUsageFlags usageFlags);
 void createDepthBuffer(VkCommandBuffer cmd);
+void createWindowContext(int w = 512, int h = 512);
 //template <class T>
 //VkResult setUniformValue(T uniformVal,
 //	Uniform_Data& uni_data,
 //	uint32_t pBinding,
 //	VkShaderStageFlags sFlags,
 //	uint32_t descriptorCount = 1);
-VkResult createDescripterLayout();
+//VkResult createDescripterLayout();
 VkResult createRenderPass(bool include_depth, bool clear, VkImageLayout finalLayout);
 void init_shaders(struct AppState& state, const char* vertShaderText, const char* fragShaderText);
 VkResult createFrameBuffer(bool include_depth);
-void createDescriptorPool(bool use_texture);
-void createDescriptorSet(bool use_texture);
+//void createDescriptorPool(bool use_texture);
+//void createDescriptorSet(bool use_texture);
 void createPipeLineCache();
-void init_pipeline(VkBool32 include_depth, VkBool32 include_vi);
+//void init_pipeline(VkBool32 include_depth, VkBool32 include_vi);
 void renderObject(struct AppState& state);
 void init_viewports(VkCommandBuffer cmd);
 void init_scissors(VkCommandBuffer cmd);
 
-//Make a utililty file;
+//Make Utility
 void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkCommandBuffer cmd);
 bool memory_type_from_properties(VkPhysicalDeviceMemoryProperties memory_properties, uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
 void init_glslang();
@@ -121,6 +133,7 @@ void wait_seconds(int seconds);
 #define NUM_VIEWPORTS 1
 #define NUM_SCISSORS NUM_VIEWPORTS
 #define FENCE_TIMEOUT 100000000
+#define MAX_FRAMES 2
 
 //TODO Change this such that it can handle Multiplatform code
 #define EXTENSION_COUNT 2
@@ -179,6 +192,8 @@ int height;
 
 depth depths;
 
+size_t currentFrame = 0;
+
 struct AppState {
 	VkCommandBuffer cmd;
 	struct {
@@ -235,7 +250,6 @@ VkResult init_global_extension_propertiesT(layer_properties& layer_props) {
 
 	return res;
 }
-//
 VkResult globalLayerProperties() {
 	uint32_t instance_layer_count;
 	VkLayerProperties* vk_props = NULL;
@@ -252,8 +266,7 @@ VkResult globalLayerProperties() {
 		vk_props = (VkLayerProperties*)realloc(
 			vk_props, instance_layer_count * sizeof(VkLayerProperties));
 
-		res =
-			vkEnumerateInstanceLayerProperties(&instance_layer_count, vk_props);
+		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, vk_props);
 	} while (res == VK_INCOMPLETE);
 
 	/*
@@ -272,26 +285,11 @@ VkResult globalLayerProperties() {
 	return res;
 }
 
-void instanceExtentionName() {
-	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-#if defined(_WIN32)
-	instance_extension_names.push_back(
-		VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#else
-	instance_extension_names.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#endif
-}
-
 void deviceExtentionName() {
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 }
 
-VkResult createInstance(std::string appName,std::string engineName) {
-	globalLayerProperties();
-	deviceExtentionName();
-
-	name = appName;
-
+void vulkanInit() {
 	if (!glfwInit()) {
 		std::cerr << "Error INIT FAILED\n";
 		exit(-1);
@@ -307,14 +305,25 @@ VkResult createInstance(std::string appName,std::string engineName) {
 		instance_extension_names.push_back(extName[i]);
 		std::cout << instance_extension_names[i] << std::endl;
 	}
+}
+
+VkResult createInstance(std::string appName, std::string engineName) {
+	VkResult res;
+
+	res = globalLayerProperties();
+	assert(res == VK_SUCCESS);
+	deviceExtentionName();
+	vulkanInit();
+
+	name = appName;
 
 	VkApplicationInfo app_info = {};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	app_info.pNext = NULL;
 	app_info.pApplicationName = appName.c_str();
-	app_info.applicationVersion = 1;
+	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 	app_info.pEngineName = engineName.c_str();
-	app_info.engineVersion = 1;
+	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 	app_info.apiVersion = VK_API_VERSION_1_0;
 
 	VkInstanceCreateInfo inst_info = {};
@@ -329,7 +338,7 @@ VkResult createInstance(std::string appName,std::string engineName) {
 	inst_info.enabledExtensionCount = instance_extension_names.size();
 	inst_info.ppEnabledExtensionNames = instance_extension_names.data();
 
-	VkResult res = vkCreateInstance(&inst_info, NULL, &inst);
+	res = vkCreateInstance(&inst_info, NULL, &inst);
 	assert(res == VK_SUCCESS);
 
 	return res;
@@ -348,7 +357,7 @@ VkResult createDeviceInfo() {
 	res = vkEnumeratePhysicalDevices(inst, &gpu_count, gpus.data());
 	assert(!res && gpu_count >= req_count);
 
-	vkGetPhysicalDeviceQueueFamilyProperties(gpus[0],&queue_family_count, NULL);
+	vkGetPhysicalDeviceQueueFamilyProperties(gpus[0], &queue_family_count, NULL);
 	assert(queue_family_count >= 1);
 
 	queue_props.resize(queue_family_count);
@@ -367,10 +376,10 @@ void createWindowContext(int w, int h) {
 
 	width = w;
 	height = h;
- 
+
 	glfwDefaultWindowHints();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	windows = glfwCreateWindow(w, h, name.c_str() , NULL, NULL);
+	windows = glfwCreateWindow(w, h, name.c_str(), NULL, NULL);
 
 	if (glfwCreateWindowSurface(inst, windows, nullptr, &surface) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create window surface!");
@@ -387,7 +396,7 @@ VkResult createSwapChainExtention() {
 	createInfo.pNext = NULL;
 	createInfo.hinstance = GetModuleHandle(NULL);
 	createInfo.hwnd = glfwGetWin32Window(windows);
-	res = vkCreateWin32SurfaceKHR(inst, &createInfo,NULL, &surface);
+	res = vkCreateWin32SurfaceKHR(inst, &createInfo, NULL, &surface);
 #else  // !__ANDROID__ && !_WIN32
 	VkXcbSurfaceCreateInfoKHR createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
@@ -400,11 +409,9 @@ VkResult createSwapChainExtention() {
 	assert(res == VK_SUCCESS);
 
 	// Iterate over each queue to learn whether it supports presenting:
-	VkBool32* pSupportsPresent =
-		(VkBool32*)malloc(queue_family_count * sizeof(VkBool32));
+	VkBool32* pSupportsPresent = (VkBool32*)malloc(queue_family_count * sizeof(VkBool32));
 	for (uint32_t i = 0; i < queue_family_count; i++) {
-		vkGetPhysicalDeviceSurfaceSupportKHR(gpus[0], i, surface,
-			&pSupportsPresent[i]);
+		vkGetPhysicalDeviceSurfaceSupportKHR(gpus[0], i, surface, &pSupportsPresent[i]);
 	}
 
 	// Search for a graphics and a present queue in the array of queue
@@ -445,13 +452,10 @@ VkResult createSwapChainExtention() {
 
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount;
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
-		&formatCount, NULL);
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface, &formatCount, NULL);
 	assert(res == VK_SUCCESS);
-	VkSurfaceFormatKHR* surfFormats =
-		(VkSurfaceFormatKHR*)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface,
-		&formatCount, surfFormats);
+	VkSurfaceFormatKHR* surfFormats = (VkSurfaceFormatKHR*)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(gpus[0], surface, &formatCount, surfFormats);
 	assert(res == VK_SUCCESS);
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
@@ -485,7 +489,7 @@ VkResult createDevice() {
 	device_info.pQueueCreateInfos = &queue_info;
 	device_info.enabledExtensionCount = device_extension_names.size();
 	device_info.ppEnabledExtensionNames =
-	device_info.enabledExtensionCount ? device_extension_names.data()
+		device_info.enabledExtensionCount ? device_extension_names.data()
 		: NULL;
 	device_info.pEnabledFeatures = NULL;
 
@@ -568,7 +572,7 @@ void createSwapChain(VkImageUsageFlags usageFlags) {
 	VkResult U_ASSERT_ONLY res;
 	VkSurfaceCapabilitiesKHR surfCapabilities;
 	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpus[0], surface, &surfCapabilities);
-	
+
 	assert(res == VK_SUCCESS);
 
 	uint32_t presentModeCount;
@@ -669,10 +673,10 @@ void createSwapChain(VkImageUsageFlags usageFlags) {
 		swapchain_ci.pQueueFamilyIndices = queueFamilyIndices;
 	}
 
-	res = vkCreateSwapchainKHR(device, &swapchain_ci, NULL,&swap_chain);
+	res = vkCreateSwapchainKHR(device, &swapchain_ci, NULL, &swap_chain);
 	assert(res == VK_SUCCESS);
 
-	res = vkGetSwapchainImagesKHR(device, swap_chain,&swapchainImageCount, NULL);
+	res = vkGetSwapchainImagesKHR(device, swap_chain, &swapchainImageCount, NULL);
 	assert(res == VK_SUCCESS);
 
 	VkImage* swapchainImages =
@@ -682,33 +686,31 @@ void createSwapChain(VkImageUsageFlags usageFlags) {
 	res = vkGetSwapchainImagesKHR(device, swap_chain, &swapchainImageCount, swapchainImages);
 	assert(res == VK_SUCCESS);
 
-	for (uint32_t i = 0; i < swapchainImageCount; i++) {
+	for (size_t i = 0; i < swapchainImageCount; i++) {
 		swap_chain_buffer sc_buffer;
 
-		VkImageViewCreateInfo color_image_view = {};
-		color_image_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		color_image_view.pNext = NULL;
-		color_image_view.format = format;
-		color_image_view.components.r = VK_COMPONENT_SWIZZLE_R;
-		color_image_view.components.g = VK_COMPONENT_SWIZZLE_G;
-		color_image_view.components.b = VK_COMPONENT_SWIZZLE_B;
-		color_image_view.components.a = VK_COMPONENT_SWIZZLE_A;
-		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		color_image_view.subresourceRange.baseMipLevel = 0;
-		color_image_view.subresourceRange.levelCount = 1;
-		color_image_view.subresourceRange.baseArrayLayer = 0;
-		color_image_view.subresourceRange.layerCount = 1;
-		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		color_image_view.flags = 0;
+		VkImageViewCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.pNext = NULL;
+		createInfo.image = swapchainImages[i];
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = format;
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = 1;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount = 1;
 
 		sc_buffer.image = swapchainImages[i];
 
-		color_image_view.image = sc_buffer.image;
-
-		res = vkCreateImageView(device, &color_image_view, NULL,
-			&sc_buffer.view);
-		scBuffer.push_back(sc_buffer);
+		res = vkCreateImageView(device, &createInfo, NULL, &sc_buffer.view);
 		assert(res == VK_SUCCESS);
+		scBuffer.push_back(sc_buffer);
+
 	}
 	free(swapchainImages);
 	current_buffer = 0;
@@ -947,7 +949,7 @@ void createDepthBuffer(VkCommandBuffer cmd) {
 //	return res;
 //}
 //
-VkResult createRenderPass(bool include_depth, bool clear,  VkImageLayout finalLayout) {
+VkResult createRenderPass(bool include_depth, bool clear, VkImageLayout finalLayout) {
 	/* DEPENDS on init_swap_chain() and init_depth_buffer() */
 
 	VkResult U_ASSERT_ONLY res;
@@ -1076,7 +1078,7 @@ void init_shaders(struct AppState& state, const char* vertShaderText, const char
 	finalize_glslang();
 }
 
-VkResult createFrameBuffer( bool include_depth) {
+VkResult createFrameBuffer(bool include_depth) {
 	/* DEPENDS on init_depth_buffer(), init_renderpass() and
 	* init_swapchain_extension() */
 
@@ -1096,7 +1098,7 @@ VkResult createFrameBuffer( bool include_depth) {
 
 	uint32_t i;
 
-	framebuffers = (VkFramebuffer*)malloc(swapchainImageCount *sizeof(VkFramebuffer));
+	framebuffers = (VkFramebuffer*)malloc(swapchainImageCount * sizeof(VkFramebuffer));
 
 	for (i = 0; i < swapchainImageCount; i++) {
 		attachments[0] = scBuffer[i].view;
@@ -1176,6 +1178,11 @@ void createPipeLineCache() {
 	assert(res == VK_SUCCESS);
 }
 
+static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
 
 void renderObject(struct AppState& state) {
 	VkResult U_ASSERT_ONLY res;
@@ -1187,24 +1194,47 @@ void renderObject(struct AppState& state) {
 	clear_values[1].depthStencil.depth = 1.0f;
 	clear_values[1].depthStencil.stencil = 0;
 
-	VkSemaphore imageAcquiredSemaphore;
+	std::vector<VkSemaphore> imageAcquiredSemaphore;
+	std::vector<VkSemaphore> renderFinishSemaphore;
+
+	imageAcquiredSemaphore.resize(MAX_FRAMES);
+	renderFinishSemaphore.resize(MAX_FRAMES);
+
 	VkSemaphoreCreateInfo imageAcquiredSemaphoreCreateInfo;
-	imageAcquiredSemaphoreCreateInfo.sType =
-		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	imageAcquiredSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	imageAcquiredSemaphoreCreateInfo.pNext = NULL;
 	imageAcquiredSemaphoreCreateInfo.flags = 0;
 
-	res = vkCreateSemaphore(device, &imageAcquiredSemaphoreCreateInfo,
-		NULL, &imageAcquiredSemaphore);
-	assert(res == VK_SUCCESS);
+	std::vector<VkFence> drawFence;
+	std::vector<VkFence> imageFence;
 
-	// Get the index of the next available swapchain image:
-	res = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX,
-		imageAcquiredSemaphore, VK_NULL_HANDLE,
-		&current_buffer);
-	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
-	// return codes
-	assert(res == VK_SUCCESS);
+	drawFence.resize(MAX_FRAMES);
+	imageFence.resize(scBuffer.size(), VK_NULL_HANDLE);
+
+	VkFenceCreateInfo fenceInfos = {};
+	fenceInfos.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfos.pNext = NULL;
+	fenceInfos.flags = 0;
+
+	for (int i = 0; i < MAX_FRAMES; i++) {
+		res = vkCreateSemaphore(device, &imageAcquiredSemaphoreCreateInfo, NULL, &imageAcquiredSemaphore[i]);
+		assert(res == VK_SUCCESS);
+
+		res = vkCreateSemaphore(device, &imageAcquiredSemaphoreCreateInfo, NULL, &renderFinishSemaphore[i]);
+		assert(res == VK_SUCCESS);
+
+		res = vkCreateFence(device, &fenceInfos, NULL, &drawFence[i]);
+		assert(res == VK_SUCCESS);
+	}
+
+
+	//// Get the index of the next available swapchain image:
+	//res = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX,
+	//	imageAcquiredSemaphore, VK_NULL_HANDLE,
+	//	&current_buffer);
+	//// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
+	//// return codes
+	//assert(res == VK_SUCCESS);
 
 	set_image_layout(scBuffer[current_buffer].image,
 		VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1243,55 +1273,62 @@ void renderObject(struct AppState& state) {
 	assert(res == VK_SUCCESS);
 
 	const VkCommandBuffer cmd_bufs[] = { state.cmd };
-	VkFenceCreateInfo fenceInfo;
-	VkFence drawFence;
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceInfo.pNext = NULL;
-	fenceInfo.flags = 0;
-	vkCreateFence(device, &fenceInfo, NULL, &drawFence);
+
+	VkPipelineStageFlags pipe_stage_flags[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
 	while (!glfwWindowShouldClose(windows)) {
 		glfwPollEvents();
 
-		vkWaitForFences(device, 1, &drawFence, VK_TRUE, FENCE_TIMEOUT);
+		vkWaitForFences(device, 1, &drawFence[currentFrame], VK_TRUE, FENCE_TIMEOUT);
 
 		uint32_t imageIndex;
-		res = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, imageAcquiredSemaphore, VK_NULL_HANDLE,&current_buffer);
+		res = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, imageAcquiredSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-		VkPipelineStageFlags pipe_stage_flags =
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		VkSubmitInfo submit_info[1] = {};
-		submit_info[0].pNext = NULL;
-		submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submit_info[0].waitSemaphoreCount = 1;
-		submit_info[0].pWaitSemaphores = &imageAcquiredSemaphore;
-		submit_info[0].pWaitDstStageMask = &pipe_stage_flags;
-		submit_info[0].commandBufferCount = 1;
-		submit_info[0].pCommandBuffers = cmd_bufs;
-		submit_info[0].signalSemaphoreCount = 0;
-		submit_info[0].pSignalSemaphores = NULL;
+		if (imageFence[imageIndex] != VK_NULL_HANDLE) {
+			vkWaitForFences(device, 1, &imageFence[currentFrame], VK_TRUE, FENCE_TIMEOUT);
+		}
 
-		vkResetFences(device, 1, &drawFence);
+		imageFence[imageIndex] = drawFence[currentFrame];
+
+		VkSemaphore waitSemaphore[] = { imageAcquiredSemaphore[currentFrame] };
+
+		VkSubmitInfo submit_info = {};
+		submit_info.pNext = NULL;
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info.waitSemaphoreCount = 1;
+		submit_info.pWaitSemaphores = waitSemaphore;
+		submit_info.pWaitDstStageMask = pipe_stage_flags;
+		submit_info.commandBufferCount = 1;
+		submit_info.pCommandBuffers = cmd_bufs;
+		VkSemaphore signalSemaphore[] = { renderFinishSemaphore[currentFrame] };
+		submit_info.signalSemaphoreCount = 1;
+		submit_info.pSignalSemaphores = signalSemaphore;
+
+
+		vkResetFences(device, 1, &imageFence[currentFrame]);
 
 		/* Queue the command buffer for execution */
-		res = vkQueueSubmit(graphics_queue, 1, submit_info, drawFence);
+		res = vkQueueSubmit(graphics_queue, 1, &submit_info, imageFence[currentFrame]);
 		assert(res == VK_SUCCESS);
 
 		/* Now present the image in the window */
 
-		VkPresentInfoKHR present;
+		VkSwapchainKHR swapChains[] = { swap_chain };
+
+		VkPresentInfoKHR present = {};
 		present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		present.pNext = NULL;
 		present.swapchainCount = 1;
-		present.pSwapchains = &swap_chain;
-		present.pImageIndices = &current_buffer;
-		present.pWaitSemaphores = NULL;
-		present.waitSemaphoreCount = 0;
+		present.pSwapchains = swapChains;
+		present.pImageIndices = &imageIndex;
+		present.pWaitSemaphores = signalSemaphore;
+		present.waitSemaphoreCount = 1;
 		present.pResults = NULL;
 
-		assert(res == VK_SUCCESS);
 		res = vkQueuePresentKHR(present_queue, &present);
 		assert(res == VK_SUCCESS);
+
+		currentFrame = (currentFrame + 1) % MAX_FRAMES;
 
 	}
 
@@ -1404,7 +1441,7 @@ void init_glslang() {
 
 }
 
-void finalize_glslang(){
+void finalize_glslang() {
 	glslang::FinalizeProcess();
 
 }
@@ -1599,8 +1636,4 @@ timestamp_t get_milliseconds() {
 #endif
 }
 
-//***********************************************************************************************
-
-void destroy_instance() {
-	vkDestroyInstance(inst, NULL);
-}
+#endif // !L_H_VULKAN_H

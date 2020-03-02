@@ -42,22 +42,7 @@
     <ClCompile Include="glfw_m\src\input.c">
       <Filter>Display GLFW_M</Filter>
     </ClCompile>
-    <ClCompile Include="glfw_m\src\linux_joystick.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
     <ClCompile Include="glfw_m\src\monitor.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\src\null_init.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\src\null_joystick.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\src\null_monitor.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\src\null_window.c">
       <Filter>Display GLFW_M</Filter>
     </ClCompile>
     <ClCompile Include="glfw_m\src\osmesa_context.c">
@@ -78,9 +63,6 @@
     <ClCompile Include="glfw_m\src\win32_init.c">
       <Filter>Display GLFW_M</Filter>
     </ClCompile>
-    <ClCompile Include="glfw_m\src\win32_joystick.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
     <ClCompile Include="glfw_m\src\win32_monitor.c">
       <Filter>Display GLFW_M</Filter>
     </ClCompile>
@@ -94,15 +76,6 @@
       <Filter>Display GLFW_M</Filter>
     </ClCompile>
     <ClCompile Include="glfw_m\src\window.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\src\wl_init.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\src\wl_monitor.c">
-      <Filter>Display GLFW_M</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\src\wl_window.c">
       <Filter>Display GLFW_M</Filter>
     </ClCompile>
     <ClCompile Include="glfw_m\src\x11_init.c">
@@ -129,11 +102,17 @@
     <ClCompile Include="glfw_m\deps\tinycthread.c">
       <Filter>Other Source File</Filter>
     </ClCompile>
+    <ClCompile Include="util_init.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LHVulkan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\base\cube_data.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="LHVulkan.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -141,9 +120,6 @@
       <Filter>Display GLFW_M</Filter>
     </ClInclude>
     <ClInclude Include="glfw_m\include\GLFW_M\glfw3native.h">
-      <Filter>Display GLFW_M</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\src\cocoa_joystick.h">
       <Filter>Display GLFW_M</Filter>
     </ClInclude>
     <ClInclude Include="glfw_m\src\cocoa_platform.h">
@@ -158,19 +134,7 @@
     <ClInclude Include="glfw_m\src\internal.h">
       <Filter>Display GLFW_M</Filter>
     </ClInclude>
-    <ClInclude Include="glfw_m\src\linux_joystick.h">
-      <Filter>Display GLFW_M</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\src\mappings.h">
-      <Filter>Display GLFW_M</Filter>
-    </ClInclude>
     <ClInclude Include="glfw_m\src\nsgl_context.h">
-      <Filter>Display GLFW_M</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\src\null_joystick.h">
-      <Filter>Display GLFW_M</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\src\null_platform.h">
       <Filter>Display GLFW_M</Filter>
     </ClInclude>
     <ClInclude Include="glfw_m\src\osmesa_context.h">
@@ -185,13 +149,7 @@
     <ClInclude Include="glfw_m\src\wgl_context.h">
       <Filter>Display GLFW_M</Filter>
     </ClInclude>
-    <ClInclude Include="glfw_m\src\win32_joystick.h">
-      <Filter>Display GLFW_M</Filter>
-    </ClInclude>
     <ClInclude Include="glfw_m\src\win32_platform.h">
-      <Filter>Display GLFW_M</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\src\wl_platform.h">
       <Filter>Display GLFW_M</Filter>
     </ClInclude>
     <ClInclude Include="glfw_m\src\x11_platform.h">
@@ -244,6 +202,15 @@
     </ClInclude>
     <ClInclude Include="glfw_m\deps\vs2008\stdint.h">
       <Filter>Other Source File</Filter>
+    </ClInclude>
+    <ClInclude Include="util_init.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="util.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cube_data.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

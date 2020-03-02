@@ -533,14 +533,12 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg,
                 if (wParam == DBT_DEVICEARRIVAL)
                 {
                     DEV_BROADCAST_HDR* dbh = (DEV_BROADCAST_HDR*) lParam;
-                    if (dbh && dbh->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
-                        _glfwDetectJoystickConnectionWin32();
+                    if (dbh && dbh->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {}
                 }
                 else if (wParam == DBT_DEVICEREMOVECOMPLETE)
                 {
                     DEV_BROADCAST_HDR* dbh = (DEV_BROADCAST_HDR*) lParam;
-                    if (dbh && dbh->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
-                        _glfwDetectJoystickDisconnectionWin32();
+                    if (dbh && dbh->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {}
                 }
 
                 break;
