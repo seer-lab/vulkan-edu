@@ -142,10 +142,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="glfw_m\deps\getopt.c" />
-    <ClCompile Include="glfw_m\deps\glad_gl.c" />
-    <ClCompile Include="glfw_m\deps\glad_vulkan.c" />
-    <ClCompile Include="glfw_m\deps\tinycthread.c" />
     <ClCompile Include="glfw_m\src\cocoa_time.c" />
     <ClCompile Include="glfw_m\src\context.c" />
     <ClCompile Include="glfw_m\src\egl_context.c" />
@@ -170,25 +166,9 @@
     <ClCompile Include="glfw_m\src\xkb_unicode.c" />
     <ClCompile Include="LHVulkan.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="util.cpp" />
-    <ClCompile Include="util_init.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cube_data.h" />
-    <ClInclude Include="glfw_m\deps\getopt.h" />
-    <ClInclude Include="glfw_m\deps\glad\gl.h" />
-    <ClInclude Include="glfw_m\deps\glad\khrplatform.h" />
-    <ClInclude Include="glfw_m\deps\glad\vk_platform.h" />
-    <ClInclude Include="glfw_m\deps\glad\vulkan.h" />
-    <ClInclude Include="glfw_m\deps\linmath.h" />
-    <ClInclude Include="glfw_m\deps\mingw\dinput.h" />
-    <ClInclude Include="glfw_m\deps\mingw\xinput.h" />
-    <ClInclude Include="glfw_m\deps\mingw\_mingw_dxhelper.h" />
-    <ClInclude Include="glfw_m\deps\nuklear.h" />
-    <ClInclude Include="glfw_m\deps\nuklear_glfw_gl2.h" />
-    <ClInclude Include="glfw_m\deps\stb_image_write.h" />
-    <ClInclude Include="glfw_m\deps\tinycthread.h" />
-    <ClInclude Include="glfw_m\deps\vs2008\stdint.h" />
     <ClInclude Include="glfw_m\glfw_config.h" />
     <ClInclude Include="glfw_m\include\GLFW_M\glfw3.h" />
     <ClInclude Include="glfw_m\include\GLFW_M\glfw3native.h" />
@@ -205,8 +185,10 @@
     <ClInclude Include="glfw_m\src\x11_platform.h" />
     <ClInclude Include="glfw_m\src\xkb_unicode.h" />
     <ClInclude Include="LHVulkan.h" />
-    <ClInclude Include="util.hpp" />
-    <ClInclude Include="util_init.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cube.frag" />
+    <None Include="cube.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

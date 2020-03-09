@@ -9,15 +9,11 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
-    <Filter Include="Other Source File">
-      <UniqueIdentifier>{a35f53f5-6cba-4b76-810e-681bfa50babb}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Display GLFW_M">
       <UniqueIdentifier>{a788e2ad-5a0c-498e-8b94-1e90ec9d86ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{116dac27-4282-458c-abab-222c86fcdf4b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -90,24 +86,6 @@
     <ClCompile Include="glfw_m\src\xkb_unicode.c">
       <Filter>Display GLFW_M</Filter>
     </ClCompile>
-    <ClCompile Include="glfw_m\deps\getopt.c">
-      <Filter>Other Source File</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\deps\glad_gl.c">
-      <Filter>Other Source File</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\deps\glad_vulkan.c">
-      <Filter>Other Source File</Filter>
-    </ClCompile>
-    <ClCompile Include="glfw_m\deps\tinycthread.c">
-      <Filter>Other Source File</Filter>
-    </ClCompile>
-    <ClCompile Include="util_init.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="util.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="LHVulkan.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -161,56 +139,16 @@
     <ClInclude Include="glfw_m\glfw_config.h">
       <Filter>Display GLFW_M</Filter>
     </ClInclude>
-    <ClInclude Include="glfw_m\deps\getopt.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\glad\gl.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\glad\khrplatform.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\glad\vk_platform.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\glad\vulkan.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\linmath.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\mingw\dinput.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\mingw\xinput.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\mingw\_mingw_dxhelper.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\nuklear.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\nuklear_glfw_gl2.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\stb_image_write.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\tinycthread.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="glfw_m\deps\vs2008\stdint.h">
-      <Filter>Other Source File</Filter>
-    </ClInclude>
-    <ClInclude Include="util_init.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="util.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="cube_data.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cube.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="cube.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -1,773 +1,966 @@
-//#define GLFW_INCLUDE_VULKAN
-//#include <vulkan/vulkan.h>
-//#include <glm/glm.hpp>
-//#include <glm/gtc/matrix_transform.hpp>
-//
-//#include "LHVulkan.h"
-//
-//#define WIDTH 512
-//#define HEIGHT 512
-//
-//static const char* vertShaderText =
-//"#version 400\n"
-//"#extension GL_ARB_separate_shader_objects : enable\n"
-//"#extension GL_ARB_shading_language_420pack : enable\n"
-//"layout (std140, binding = 0) uniform bufferVals {\n"
-//" mat4 mvp;\n"
-//"} myBufferVals;\n"
-//"layout (location = 0) in vec4 pos;\n"
-//"layout (location = 1) in vec3 inNormal;\n"
-//"layout (location = 0) out vec3 outNormal;\n"
-//"out gl_PerVertex { \n"
-//" vec4 gl_Position;\n"
-//"};\n"
-//"void main() {\n"
-//" outNormal = inNormal;\n"
-//" gl_Position = myBufferVals.mvp * pos;\n"
-//"}\n";
-//
-//static const char* fragShaderText =
-//"#version 400\n"
-//"#extension GL_ARB_separate_shader_objects : enable\n"
-//"#extension GL_ARB_shading_language_420pack : enable\n"
-//"layout (location = 0) in vec3 Normal;\n"
-//"layout (location = 0) out vec4 outColor;\n"
-//"void main() {\n"
-//"vec3 N = normalize(Normal);\n"
-//"vec3 L = normalize(vec3(1.0,-0.5,0.0));\n"
-//"float ambientStrength = 0.1;\n"
-//"vec3 ambient = ambientStrength * L;\n"
-//"float diff = max(dot(N, L), 0.0);\n"
-//"vec3 diffuse = diff * L;\n"
-//"float specularStrength = 0.5;\n"
-//"vec3 results = (ambient + diffuse) * L;\n"
-//" outColor = vec4(results, 1.0) * 7.0f;\n"
-//"}\n";
-//
-//
-//void mesh_init() {
-//	int i;
-//	int k;
-//	VkResult U_ASSERT_ONLY res;
-//	bool U_ASSERT_ONLY pass;
-//	float vertices[8][4] = {
-//		{ -1.0, -1.0, -1.0, 1.0 }, //0
-//		{ -1.0, -1.0, 1.0, 1.0 }, //1
-//		{ -1.0, 1.0, -1.0, 1.0 }, //2
-//		{ -1.0, 1.0, 1.0, 1.0 }, //3
-//		{ 1.0, -1.0, -1.0, 1.0 }, //4
-//		{ 1.0, -1.0, 1.0, 1.0 }, //5
-//		{ 1.0, 1.0, -1.0, 1.0 }, //6
-//		{ 1.0, 1.0, 1.0, 1.0 } //7
-//	};
-//
-//	float normals[8][3] = {
-//		{ -1.0, -1.0, -1.0 }, //0
-//		{ -1.0, -1.0, 1.0 }, //1
-//		{ -1.0, 1.0, -1.0 }, //2
-//		{ -1.0, 1.0, 1.0 }, //3
-//		{ 1.0, -1.0, -1.0 }, //4
-//		{ 1.0, -1.0, 1.0 }, //5
-//		{ 1.0, 1.0, -1.0 }, //6
-//		{ 1.0, 1.0, 1.0 } //7
-//	};
-//
-//	uint16_t indices[36] = { 3, 1, 0, 0, 2, 3,
-//		0, 4, 5, 5, 1, 0,
-//		2, 6, 7, 7, 3, 2,
-//		0, 4, 6, 0, 2, 6,
-//		1, 5, 7, 7, 3, 1,
-//		7, 5, 4, 4, 6, 7 };
-//
-//	state.vBuffer = new float[7 * 8];
-//	k = 0;
-//	for (i = 0; i < 8; i++) {
-//		state.vBuffer[k++] = vertices[i][0];
-//		state.vBuffer[k++] = vertices[i][1];
-//		state.vBuffer[k++] = vertices[i][2];
-//		state.vBuffer[k++] = vertices[i][3];
-//		state.vBuffer[k++] = normals[i][0];
-//		state.vBuffer[k++] = normals[i][1];
-//		state.vBuffer[k++] = normals[i][2];
-//	}
-//
-//	VkBufferCreateInfo buf_info = {};
-//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-//	buf_info.pNext = NULL;
-//	buf_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-//	buf_info.size = sizeof(indices);
-//	buf_info.queueFamilyIndexCount = 0;
-//	buf_info.pQueueFamilyIndices = NULL;
-//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//	buf_info.flags = 0;
-//	res = vkCreateBuffer(device, &buf_info, NULL, &state.iBuffer);
-//	assert(res == VK_SUCCESS);
-//	VkMemoryRequirements mem_reqs;
-//	vkGetBufferMemoryRequirements(device, state.iBuffer, &mem_reqs);
-//	VkMemoryAllocateInfo alloc_info = {};
-//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-//	alloc_info.pNext = NULL;
-//	alloc_info.memoryTypeIndex = 0;
-//	alloc_info.allocationSize = mem_reqs.size;
-//	pass = memory_type_from_properties(memory_properties, mem_reqs.memoryTypeBits,
-//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-//		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-//		&alloc_info.memoryTypeIndex);
-//	assert(pass && "No mappable coherent memory");
-//	VkDeviceMemory mem;
-//	res = vkAllocateMemory(device, &alloc_info, NULL, &mem);
-//	assert(res == VK_SUCCESS);
-//	uint8_t* pData;
-//	res = vkMapMemory(device, mem, 0, mem_reqs.size, 0, (void**)
-//		&pData);
-//	assert(res == VK_SUCCESS);
-//	memcpy(pData, indices, sizeof(indices));
-//	vkUnmapMemory(device, mem);
-//	res = vkBindBufferMemory(device, state.iBuffer, mem, 0);
-//	assert(res == VK_SUCCESS);
-//
-//}
-//
-//void init_pipeline( struct AppState& state, VkBool32 include_depth,
-//	VkBool32 include_vi = true);
-//
-//void init_uniform_buffer( struct AppState& state) {
-//	VkResult U_ASSERT_ONLY res;
-//	bool U_ASSERT_ONLY pass;
-//	float fov = glm::radians(45.0f);
-//	if (width > height) {
-//		fov *= static_cast<float>(height) / static_cast<float>(width);
-//	}
-//	state.Projection = glm::perspective(fov,
-//		static_cast<float>(width) /
-//		static_cast<float>(height), 0.1f, 100.0f);
-//	state.View = glm::lookAt(
-//		glm::vec3(-5, 3, -10),  // Camera is at (-5,3,-10), in World Space
-//		glm::vec3(0, 0, 0),  // and looks at the origin
-//		glm::vec3(0, -1, 0)   // Head is up (set to 0,-1,0 to look upside-down)
-//	);
-//	state.Model = glm::mat4(1.0f);
-//	// Vulkan clip space has inverted Y and half Z.
-//	state.Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-//		0.0f, -1.0f, 0.0f, 0.0f,
-//		0.0f, 0.0f, 0.5f, 0.0f,
-//		0.0f, 0.0f, 0.5f, 1.0f);
-//
-//	state.MVP = state.Clip * state.Projection * state.View * state.Model;
-//
-//	/* VULKAN_KEY_START */
-//	VkBufferCreateInfo buf_info = {};
-//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-//	buf_info.pNext = NULL;
-//	buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-//	buf_info.size = sizeof(state.MVP);
-//	buf_info.queueFamilyIndexCount = 0;
-//	buf_info.pQueueFamilyIndices = NULL;
-//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//	buf_info.flags = 0;
-//	res = vkCreateBuffer(device, &buf_info, NULL, &state.uniform_data.buf);
-//	assert(res == VK_SUCCESS);
-//
-//	VkMemoryRequirements mem_reqs;
-//	vkGetBufferMemoryRequirements(device, state.uniform_data.buf,
-//		&mem_reqs);
-//
-//	VkMemoryAllocateInfo alloc_info = {};
-//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-//	alloc_info.pNext = NULL;
-//	alloc_info.memoryTypeIndex = 0;
-//
-//	alloc_info.allocationSize = mem_reqs.size;
-//	pass = memory_type_from_properties(memory_properties, mem_reqs.memoryTypeBits,
-//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-//		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-//		&alloc_info.memoryTypeIndex);
-//	assert(pass && "No mappable, coherent memory");
-//
-//	res = vkAllocateMemory(device, &alloc_info, NULL,
-//		&(state.uniform_data.mem));
-//	assert(res == VK_SUCCESS);
-//
-//	uint8_t* pData;
-//	res = vkMapMemory(device, state.uniform_data.mem, 0, mem_reqs.size, 0,
-//		(void**)&pData);
-//	assert(res == VK_SUCCESS);
-//
-//	memcpy(pData, &state.MVP, sizeof(state.MVP));
-//
-//	vkUnmapMemory(device, state.uniform_data.mem);
-//
-//	res = vkBindBufferMemory(device, state.uniform_data.buf,
-//		state.uniform_data.mem, 0);
-//	assert(res == VK_SUCCESS);
-//
-//	state.uniform_data.buffer_info.buffer = state.uniform_data.buf;
-//	state.uniform_data.buffer_info.offset = 0;
-//	state.uniform_data.buffer_info.range = sizeof(state.MVP);
-//}
-//
-//void init_descriptor_and_pipeline_layouts(
-//	struct AppState& state) {
-//	VkDescriptorSetLayoutBinding layout_bindings[2];
-//	layout_bindings[0].binding = 0;
-//	layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//	layout_bindings[0].descriptorCount = 1;
-//	layout_bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-//	layout_bindings[0].pImmutableSamplers = NULL;
-//
-//	/* Next take layout bindings and use them to create a descriptor set layout
-//	*/
-//	VkDescriptorSetLayoutCreateInfo descriptor_layout = {};
-//	descriptor_layout.sType =
-//		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-//	descriptor_layout.pNext = NULL;
-//	descriptor_layout.bindingCount = 1;
-//	descriptor_layout.pBindings = layout_bindings;
-//
-//	VkResult U_ASSERT_ONLY res;
-//
-//	state.num_descriptor_sets = 1;
-//	state.desc_layout.resize(state.num_descriptor_sets);
-//	res = vkCreateDescriptorSetLayout(device, &descriptor_layout, NULL,
-//		state.desc_layout.data());
-//	assert(res == VK_SUCCESS);
-//
-//	/* Now use the descriptor layout to create a pipeline layout */
-//	VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = {};
-//	pPipelineLayoutCreateInfo.sType =
-//		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-//	pPipelineLayoutCreateInfo.pNext = NULL;
-//	pPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
-//	pPipelineLayoutCreateInfo.pPushConstantRanges = NULL;
-//	pPipelineLayoutCreateInfo.setLayoutCount = state.num_descriptor_sets;
-//	pPipelineLayoutCreateInfo.pSetLayouts = state.desc_layout.data();
-//
-//	res = vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, NULL,
-//		&state.pipeline_layout);
-//	assert(res == VK_SUCCESS);
-//}
-//
-//void init_vertex_buffer( struct AppState& state, const void* vertexData,
-//	uint32_t dataSize, uint32_t dataStride,
-//	bool use_texture) {
-//	VkResult U_ASSERT_ONLY res;
-//	bool U_ASSERT_ONLY pass;
-//
-//	VkBufferCreateInfo buf_info = {};
-//	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-//	buf_info.pNext = NULL;
-//	buf_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-//	buf_info.size = dataSize;
-//	buf_info.queueFamilyIndexCount = 0;
-//	buf_info.pQueueFamilyIndices = NULL;
-//	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//	buf_info.flags = 0;
-//	res = vkCreateBuffer(device, &buf_info, NULL, &state.vertex_buffer.buf);
-//	assert(res == VK_SUCCESS);
-//
-//	VkMemoryRequirements mem_reqs;
-//	vkGetBufferMemoryRequirements(device, state.vertex_buffer.buf,
-//		&mem_reqs);
-//
-//	VkMemoryAllocateInfo alloc_info = {};
-//	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-//	alloc_info.pNext = NULL;
-//	alloc_info.memoryTypeIndex = 0;
-//
-//	alloc_info.allocationSize = mem_reqs.size;
-//	pass = memory_type_from_properties(memory_properties, mem_reqs.memoryTypeBits,
-//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-//		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-//		&alloc_info.memoryTypeIndex);
-//	assert(pass && "No mappable, coherent memory");
-//
-//	res = vkAllocateMemory(device, &alloc_info, NULL,
-//		&(state.vertex_buffer.mem));
-//	assert(res == VK_SUCCESS);
-//	state.vertex_buffer.buffer_info.range = mem_reqs.size;
-//	state.vertex_buffer.buffer_info.offset = 0;
-//
-//	uint8_t* pData;
-//	res = vkMapMemory(device, state.vertex_buffer.mem, 0, mem_reqs.size, 0,
-//		(void**)&pData);
-//	assert(res == VK_SUCCESS);
-//
-//	memcpy(pData, vertexData, dataSize);
-//
-//	vkUnmapMemory(device, state.vertex_buffer.mem);
-//
-//	res = vkBindBufferMemory(device, state.vertex_buffer.buf,
-//		state.vertex_buffer.mem, 0);
-//	assert(res == VK_SUCCESS);
-//
-//	state.vi_binding.binding = 0;
-//	state.vi_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-//	state.vi_binding.stride = dataStride;
-//
-//	state.vi_attribs[0].binding = 0;
-//	state.vi_attribs[0].location = 0;
-//	state.vi_attribs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-//	state.vi_attribs[0].offset = 0;
-//	state.vi_attribs[1].binding = 0;
-//	state.vi_attribs[1].location = 1;
-//	state.vi_attribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-//	state.vi_attribs[1].offset = 16;
-//
-//}
-//
-//void init_descriptor_pool( struct AppState& state, bool use_texture) {
-//	/* DEPENDS on init_uniform_buffer() and
-//	* init_descriptor_and_pipeline_layouts() */
-//
-//	VkResult U_ASSERT_ONLY res;
-//	VkDescriptorPoolSize type_count[2];
-//	type_count[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//	type_count[0].descriptorCount = 1;
-//	if (use_texture) {
-//		type_count[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-//		type_count[1].descriptorCount = 1;
-//	}
-//
-//	VkDescriptorPoolCreateInfo descriptor_pool = {};
-//	descriptor_pool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-//	descriptor_pool.pNext = NULL;
-//	descriptor_pool.maxSets = 1;
-//	descriptor_pool.poolSizeCount = 1;
-//	descriptor_pool.pPoolSizes = type_count;
-//
-//	res = vkCreateDescriptorPool(device, &descriptor_pool, NULL,
-//		&state.desc_pool);
-//	assert(res == VK_SUCCESS);
-//}
-//
-//void init_descriptor_set( struct AppState& state, bool use_texture) {
-//	/* DEPENDS on init_descriptor_pool() */
-//
-//	VkResult U_ASSERT_ONLY res;
-//
-//	VkDescriptorSetAllocateInfo alloc_info[1];
-//	alloc_info[0].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-//	alloc_info[0].pNext = NULL;
-//	alloc_info[0].descriptorPool = state.desc_pool;
-//	alloc_info[0].descriptorSetCount = state.num_descriptor_sets;
-//	alloc_info[0].pSetLayouts = state.desc_layout.data();
-//
-//	state.desc_set.resize(state.num_descriptor_sets);
-//	res =
-//		vkAllocateDescriptorSets(device, alloc_info, state.desc_set.data());
-//	assert(res == VK_SUCCESS);
-//
-//	VkWriteDescriptorSet writes[2];
-//
-//	writes[0] = {};
-//	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//	writes[0].pNext = NULL;
-//	writes[0].dstSet = state.desc_set[0];
-//	writes[0].descriptorCount = 1;
-//	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//	writes[0].pBufferInfo = &state.uniform_data.buffer_info;
-//	writes[0].dstArrayElement = 0;
-//	writes[0].dstBinding = 0;
-//
-//	vkUpdateDescriptorSets(device, use_texture ? 2 : 1, writes, 0, NULL);
-//}
-//
-//void init_pipeline( struct AppState& state, VkBool32 include_depth,
-//	VkBool32 include_vi) {
-//	VkResult U_ASSERT_ONLY res;
-//
-//	VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
-//	VkPipelineDynamicStateCreateInfo dynamicState = {};
-//	memset(dynamicStateEnables, 0, sizeof dynamicStateEnables);
-//	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-//	dynamicState.pNext = NULL;
-//	dynamicState.pDynamicStates = dynamicStateEnables;
-//	dynamicState.dynamicStateCount = 0;
-//
-//	VkPipelineVertexInputStateCreateInfo vi;
-//	memset(&vi, 0, sizeof(vi));
-//	vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-//	if (include_vi) {
-//		vi.pNext = NULL;
-//		vi.flags = 0;
-//		vi.vertexBindingDescriptionCount = 1;
-//		vi.pVertexBindingDescriptions = &state.vi_binding;
-//		vi.vertexAttributeDescriptionCount = 2;
-//		vi.pVertexAttributeDescriptions = state.vi_attribs;
-//	}
-//	VkPipelineInputAssemblyStateCreateInfo ia;
-//	ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-//	ia.pNext = NULL;
-//	ia.flags = 0;
-//	ia.primitiveRestartEnable = VK_FALSE;
-//	ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-//
-//	VkPipelineRasterizationStateCreateInfo rs;
-//	rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-//	rs.pNext = NULL;
-//	rs.flags = 0;
-//	rs.polygonMode = VK_POLYGON_MODE_FILL;
-//	rs.cullMode = VK_CULL_MODE_BACK_BIT;
-//	rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
-//	rs.depthClampEnable = include_depth;
-//	rs.rasterizerDiscardEnable = VK_FALSE;
-//	rs.depthBiasEnable = VK_FALSE;
-//	rs.depthBiasConstantFactor = 0;
-//	rs.depthBiasClamp = 0;
-//	rs.depthBiasSlopeFactor = 0;
-//	rs.lineWidth = 1.0f;
-//
-//	VkPipelineColorBlendStateCreateInfo cb;
-//	cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-//	cb.flags = 0;
-//	cb.pNext = NULL;
-//	VkPipelineColorBlendAttachmentState att_state[1];
-//	att_state[0].colorWriteMask = 0xf;
-//	att_state[0].blendEnable = VK_FALSE;
-//	att_state[0].alphaBlendOp = VK_BLEND_OP_ADD;
-//	att_state[0].colorBlendOp = VK_BLEND_OP_ADD;
-//	att_state[0].srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	att_state[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	att_state[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	att_state[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-//	cb.attachmentCount = 1;
-//	cb.pAttachments = att_state;
-//	cb.logicOpEnable = VK_FALSE;
-//	cb.logicOp = VK_LOGIC_OP_NO_OP;
-//	cb.blendConstants[0] = 1.0f;
-//	cb.blendConstants[1] = 1.0f;
-//	cb.blendConstants[2] = 1.0f;
-//	cb.blendConstants[3] = 1.0f;
-//
-//	VkPipelineViewportStateCreateInfo vp = {};
-//	vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-//	vp.pNext = NULL;
-//	vp.flags = 0;
-//#ifndef __ANDROID__
-//	vp.viewportCount = NUM_VIEWPORTS;
-//	dynamicStateEnables[dynamicState.dynamicStateCount++] =
-//		VK_DYNAMIC_STATE_VIEWPORT;
-//	vp.scissorCount = NUM_SCISSORS;
-//	dynamicStateEnables[dynamicState.dynamicStateCount++] =
-//		VK_DYNAMIC_STATE_SCISSOR;
-//	vp.pScissors = NULL;
-//	vp.pViewports = NULL;
-//#else
-//	// Temporary disabling dynamic viewport on Android because some of drivers doesn't
-//	// support the feature.
-//	VkViewport viewports;
-//	viewports.minDepth = 0.0f;
-//	viewports.maxDepth = 1.0f;
-//	viewports.x = 0;
-//	viewports.y = 0;
-//	viewports.width = width;
-//	viewports.height = height;
-//	VkRect2D scissor;
-//	scissor.extent.width = width;
-//	scissor.extent.height = height;
-//	scissor.offset.x = 0;
-//	scissor.offset.y = 0;
-//	vp.viewportCount = NUM_VIEWPORTS;
-//	vp.scissorCount = NUM_SCISSORS;
-//	vp.pScissors = &scissor;
-//	vp.pViewports = &viewports;
-//#endif
-//	VkPipelineDepthStencilStateCreateInfo ds;
-//	ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-//	ds.pNext = NULL;
-//	ds.flags = 0;
-//	ds.depthTestEnable = include_depth;
-//	ds.depthWriteEnable = include_depth;
-//	ds.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-//	ds.depthBoundsTestEnable = VK_FALSE;
-//	ds.stencilTestEnable = VK_FALSE;
-//	ds.back.failOp = VK_STENCIL_OP_KEEP;
-//	ds.back.passOp = VK_STENCIL_OP_KEEP;
-//	ds.back.compareOp = VK_COMPARE_OP_ALWAYS;
-//	ds.back.compareMask = 0;
-//	ds.back.reference = 0;
-//	ds.back.depthFailOp = VK_STENCIL_OP_KEEP;
-//	ds.back.writeMask = 0;
-//	ds.minDepthBounds = 0;
-//	ds.maxDepthBounds = 0;
-//	ds.stencilTestEnable = VK_FALSE;
-//	ds.front = ds.back;
-//
-//	VkPipelineMultisampleStateCreateInfo ms;
-//	ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-//	ms.pNext = NULL;
-//	ms.flags = 0;
-//	ms.pSampleMask = NULL;
-//	ms.rasterizationSamples = NUM_SAMPLES;
-//	ms.sampleShadingEnable = VK_FALSE;
-//	ms.alphaToCoverageEnable = VK_FALSE;
-//	ms.alphaToOneEnable = VK_FALSE;
-//	ms.minSampleShading = 0.0;
-//
-//	VkGraphicsPipelineCreateInfo pipeline;
-//	pipeline.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-//	pipeline.pNext = NULL;
-//	pipeline.layout = state.pipeline_layout;
-//	pipeline.basePipelineHandle = VK_NULL_HANDLE;
-//	pipeline.basePipelineIndex = 0;
-//	pipeline.flags = 0;
-//	pipeline.pVertexInputState = &vi;
-//	pipeline.pInputAssemblyState = &ia;
-//	pipeline.pRasterizationState = &rs;
-//	pipeline.pColorBlendState = &cb;
-//	pipeline.pTessellationState = NULL;
-//	pipeline.pMultisampleState = &ms;
-//	pipeline.pDynamicState = &dynamicState;
-//	pipeline.pViewportState = &vp;
-//	pipeline.pDepthStencilState = &ds;
-//	pipeline.pStages = state.shaderStages;
-//	pipeline.stageCount = 2;
-//	pipeline.renderPass = render_pass;
-//	pipeline.subpass = 0;
-//
-//	res = vkCreateGraphicsPipelines(device, pipelineCaches, 1,
-//		&pipeline, NULL, &state.pipeline);
-//	assert(res == VK_SUCCESS);
-//}
-//
-//int main() {
-//	VkResult U_ASSERT_ONLY res;
-//	const bool depthPresent = true;
-//
-//	createInstance("Sample Program");
-//	createDeviceInfo();
-//	createWindowContext(512, 512);
-//	createSwapChainExtention();
-//	createDevice();
-//
-//	createCommandPool();
-//	createCommandBuffer(state.cmd);
-//	execute_begin_command_buffer(state.cmd);
-//	createDeviceQueue();
-//	createSwapChain(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-//	createDepthBuffer( state.cmd);
-//	init_uniform_buffer( state);
-//	init_descriptor_and_pipeline_layouts( state);
-//	createRenderPass( depthPresent, true, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-//	init_shaders(state, vertShaderText, fragShaderText);
-//	createFrameBuffer( depthPresent);
-//
-//	mesh_init();
-//	init_vertex_buffer( state, state.vBuffer, 7 * 8 * sizeof(float), 7 * sizeof(float), false);
-//
-//	init_descriptor_pool( state, false);
-//	init_descriptor_set( state, false);
-//	createPipeLineCache();
-//	init_pipeline( state, depthPresent);
-//	renderObject(state);
-//
-//	//	destroy_instance();
-//
-//
-//	return 0;
-//	
-//}
+#define GLFW_INCLUDE_VULKAN
+#include <vulkan/vulkan.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <fstream>
 
+#include "LHVulkan.h"
 
+#define VK_USE_PLATFORM_WIN32_KHR
 
+#define WIDTH 512
+#define HEIGHT 512
+struct Vertex {
+	float position[3];
+	float color[3];
+};
 
-#include "util_init.hpp"
-#include <assert.h>
-#include <string.h>
-#include <cstdlib>
-#include "cube_data.h"
-//#include "LHVulkan.h"                                                                */
+//Custom States depending on what is needed
+struct appState{
+	struct Vertex {
+		float position[3];
+		float color[3];
+	}vertex;
 
-static const char* vertShaderText =
-"#version 400\n"
-"#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n"
-"layout (std140, binding = 0) uniform bufferVals {\n"
-"    mat4 mvp;\n"
-"} myBufferVals;\n"
-"layout (location = 0) in vec4 pos;\n"
-"layout (location = 1) in vec4 inColor;\n"
-"layout (location = 0) out vec4 outColor;\n"
-"void main() {\n"
-"   outColor = inColor;\n"
-"   gl_Position = myBufferVals.mvp * pos;\n"
-"}\n";
+	struct vertices v;
+	// Index buffer
+	struct indices i;
 
-static const char* fragShaderText =
-"#version 400\n"
-"#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n"
-"layout (location = 0) in vec4 color;\n"
-"layout (location = 0) out vec4 outColor;\n"
-"void main() {\n"
-"   outColor = color;\n"
-"}\n";
+	// Uniform buffer block object
+	struct {
+		VkDeviceMemory memory;
+		VkBuffer buffer;
+		VkDescriptorBufferInfo descriptor;
+	}  uniformBufferVS;
 
-static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	struct {
+		glm::mat4 projectionMatrix;
+		glm::mat4 modelMatrix;
+		glm::mat4 viewMatrix;
+	} uboVS;
+
+	glm::mat4 Projection;
+	glm::mat4 Clip;
+
+	float* vBuffer;
+	VkBuffer iBuffer;
+
+	VkPipelineLayout pipelineLayout;
+	VkPipeline pipeline;
+	VkDescriptorSetLayout descriptorSetLayout;
+	VkDescriptorSet descriptorSet;
+	VkSemaphore presentCompleteSemaphore;
+	VkSemaphore renderCompleteSemaphore;
+	std::vector<VkFence> waitFences;
+};
+
+glm::vec3 rotation = glm::vec3();
+glm::vec3 cameraPos = glm::vec3();
+glm::vec2 mousePos;
+
+//TODO: Take care of Deinit
+
+void prepareSynchronizationPrimitives(struct LHContext& context, struct appState& state)
 {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
-        std::cout << "ESC key pressed!\n";
-    }
+	VkResult U_ASSERT_ONLY res;
+
+	// Semaphores (Used for correct command ordering)
+	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	semaphoreCreateInfo.pNext = nullptr;
+
+	// Semaphore used to ensures that image presentation is complete before starting to submit again
+	res = (vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &state.presentCompleteSemaphore));
+
+	// Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
+	res = (vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &state.renderCompleteSemaphore));
+
+	// Fences (Used to check draw command buffer completion)
+	VkFenceCreateInfo fenceCreateInfo = {};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	// Create in signaled state so we don't wait on first render of each command buffer
+	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	state.waitFences.resize(context.cmdBuffer.size());
+	for (auto& fence : state.waitFences)
+	{
+		res = (vkCreateFence(context.device, &fenceCreateInfo, nullptr, &fence));
+	}
 }
 
-int sample_main(int argc, char* argv[]) {
-    VkResult U_ASSERT_ONLY res;
-    struct sample_info info = {};
-    char sample_title[] = "Draw Cube";
-    const bool depthPresent = true;
+void buildCommandBuffers(struct LHContext& context, struct appState& state){
+	VkResult U_ASSERT_ONLY res;
 
-    process_command_line_args(info, argc, argv);
-    init_global_layer_properties(info);
-    init_instance_extension_names(info);
-    init_device_extension_names(info);
-    init_instance(info, sample_title);
-    init_enumerate_device(info);
-    init_window_size(info, 500, 500);
-    init_connection(info);
-    init_window(info);
-    init_swapchain_extension(info);
-    init_device(info);
+	VkCommandBufferBeginInfo cmdBufInfo = {};
+	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufInfo.pNext = nullptr;
 
-    init_command_pool(info);
-    init_command_buffer(info);
-    execute_begin_command_buffer(info);
-    init_device_queue(info);
-    init_swap_chain(info);
-    init_depth_buffer(info);
-    init_uniform_buffer(info);
-    init_descriptor_and_pipeline_layouts(info, false);
-    init_renderpass(info, depthPresent);
-    init_shaders(info, vertShaderText, fragShaderText);
-    init_framebuffers(info, depthPresent);
-    init_vertex_buffer(info, g_vb_solid_face_colors_Data, sizeof(g_vb_solid_face_colors_Data),
-        sizeof(g_vb_solid_face_colors_Data[0]), false);
-    init_descriptor_pool(info, false);
-    init_descriptor_set(info, false);
-    init_pipeline_cache(info);
-    init_pipeline(info, depthPresent);
+	// Set clear values for all framebuffer attachments with loadOp set to clear
+	// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
+	VkClearValue clearValues[2];
+	clearValues[0].color = { { 0.0f, 0.0f, 0.2f, 1.0f } };
+	clearValues[1].depthStencil = { 1.0f, 0 };
 
-    /* VULKAN_KEY_START */
+	VkRenderPassBeginInfo renderPassBeginInfo = {};
+	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassBeginInfo.pNext = nullptr;
+	renderPassBeginInfo.renderPass = context.render_pass;
+	renderPassBeginInfo.renderArea.offset.x = 0;
+	renderPassBeginInfo.renderArea.offset.y = 0;
+	renderPassBeginInfo.renderArea.extent.width = context.width;
+	renderPassBeginInfo.renderArea.extent.height = context.height;
+	renderPassBeginInfo.clearValueCount = 2;
+	renderPassBeginInfo.pClearValues = clearValues;
 
-    VkClearValue clear_values[2];
-    clear_values[0].color.float32[0] = 0.2f;
-    clear_values[0].color.float32[1] = 0.2f;
-    clear_values[0].color.float32[2] = 0.2f;
-    clear_values[0].color.float32[3] = 0.2f;
-    clear_values[1].depthStencil.depth = 1.0f;
-    clear_values[1].depthStencil.stencil = 0;
+	for (int32_t i = 0; i < context.cmdBuffer.size(); ++i)
+	{
+		// Set target frame buffer
+		renderPassBeginInfo.framebuffer = context.frameBuffers[i];
 
-    VkSemaphore imageAcquiredSemaphore;
-    VkSemaphoreCreateInfo imageAcquiredSemaphoreCreateInfo;
-    imageAcquiredSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    imageAcquiredSemaphoreCreateInfo.pNext = NULL;
-    imageAcquiredSemaphoreCreateInfo.flags = 0;
+		res = (vkBeginCommandBuffer(context.cmdBuffer[i], &cmdBufInfo));
 
-    res = vkCreateSemaphore(info.device, &imageAcquiredSemaphoreCreateInfo, NULL, &imageAcquiredSemaphore);
-    assert(res == VK_SUCCESS);
+		// Start the first sub pass specified in our default render pass setup by the base class
+		// This will clear the color and depth attachment
+		vkCmdBeginRenderPass(context.cmdBuffer[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Get the index of the next available swapchain image:
-    res = vkAcquireNextImageKHR(info.device, info.swap_chain, UINT64_MAX, imageAcquiredSemaphore, VK_NULL_HANDLE,
-        &info.current_buffer);
-    // TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
-    // return codes
-    assert(res == VK_SUCCESS);
+		// Update dynamic viewport state
+		VkViewport viewport = {};
+		viewport.height = (float)context.height;
+		viewport.width = (float)context.width;
+		viewport.minDepth = (float)0.0f;
+		viewport.maxDepth = (float)1.0f;
+		vkCmdSetViewport(context.cmdBuffer[i], 0, 1, &viewport);
 
-    VkRenderPassBeginInfo rp_begin;
-    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp_begin.pNext = NULL;
-    rp_begin.renderPass = info.render_pass;
-    rp_begin.framebuffer = info.framebuffers[info.current_buffer];
-    rp_begin.renderArea.offset.x = 0;
-    rp_begin.renderArea.offset.y = 0;
-    rp_begin.renderArea.extent.width = info.width;
-    rp_begin.renderArea.extent.height = info.height;
-    rp_begin.clearValueCount = 2;
-    rp_begin.pClearValues = clear_values;
+		// Update dynamic scissor state
+		VkRect2D scissor = {};
+		scissor.extent.width = context.width;
+		scissor.extent.height = context.height;
+		scissor.offset.x = 0;
+		scissor.offset.y = 0;
+		vkCmdSetScissor(context.cmdBuffer[i], 0, 1, &scissor);
 
-    vkCmdBeginRenderPass(info.cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+		// Bind descriptor sets describing shader binding points
+		vkCmdBindDescriptorSets(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelineLayout, 0, 1, &state.descriptorSet, 0, nullptr);
 
-    vkCmdBindPipeline(info.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, info.pipeline);
-    vkCmdBindDescriptorSets(info.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, info.pipeline_layout, 0, NUM_DESCRIPTOR_SETS,
-        info.desc_set.data(), 0, NULL);
+		// Bind the rendering pipeline
+		// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
+		vkCmdBindPipeline(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipeline);
 
-    const VkDeviceSize offsets[1] = { 0 };
-    vkCmdBindVertexBuffers(info.cmd, 0, 1, &info.vertex_buffer.buf, offsets);
+		// Bind triangle vertex buffer (contains position and colors)
+		VkDeviceSize offsets[1] = { 0 };
+		vkCmdBindVertexBuffers(context.cmdBuffer[i], 0, 1, &state.v.buffer, offsets);
 
-    init_viewports(info);
-    init_scissors(info);
+		// Bind triangle index buffer
+		vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDraw(info.cmd, 12 * 3, 1, 0, 0);
-    vkCmdEndRenderPass(info.cmd);
-    res = vkEndCommandBuffer(info.cmd);
-    const VkCommandBuffer cmd_bufs[] = { info.cmd };
-    VkFenceCreateInfo fenceInfo;
-    VkFence drawFence;
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.pNext = NULL;
-    fenceInfo.flags = 0;
-    vkCreateFence(info.device, &fenceInfo, NULL, &drawFence);
-    glfwSetKeyCallback(info.windows, keyCallback);
-    while (!glfwWindowShouldClose(info.windows)) {
-        glfwPollEvents();
-        VkPipelineStageFlags pipe_stage_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo submit_info[1] = {};
-        submit_info[0].pNext = NULL;
-        submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submit_info[0].waitSemaphoreCount = 1;
-        submit_info[0].pWaitSemaphores = &imageAcquiredSemaphore;
-        submit_info[0].pWaitDstStageMask = &pipe_stage_flags;
-        submit_info[0].commandBufferCount = 1;
-        submit_info[0].pCommandBuffers = cmd_bufs;
-        submit_info[0].signalSemaphoreCount = 0;
-        submit_info[0].pSignalSemaphores = NULL;
+		// Draw indexed triangle
+		vkCmdDrawIndexed(context.cmdBuffer[i], state.i.count, 1, 0, 0, 1);
 
-        /* Queue the command buffer for execution */
-        res = vkQueueSubmit(info.graphics_queue, 1, submit_info, drawFence);
-        assert(res == VK_SUCCESS);
+		vkCmdEndRenderPass(context.cmdBuffer[i]);
 
-        /* Now present the image in the window */
+		// Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to 
+		// VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
 
-        VkPresentInfoKHR present;
-        present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        present.pNext = NULL;
-        present.swapchainCount = 1;
-        present.pSwapchains = &info.swap_chain;
-        present.pImageIndices = &info.current_buffer;
-        present.pWaitSemaphores = NULL;
-        present.waitSemaphoreCount = 0;
-        present.pResults = NULL;
+		res = (vkEndCommandBuffer(context.cmdBuffer[i]));
+	}
+}
 
-        /* Make sure command buffer is finished before presenting */
-        do {
-            res = vkWaitForFences(info.device, 1, &drawFence, VK_TRUE, FENCE_TIMEOUT);
-        } while (res == VK_TIMEOUT);
+void draw(struct LHContext& context, struct appState& state){
+	VkResult U_ASSERT_ONLY res;
+	// Get next image in the swap chain (back/front buffer)
+	res = vkAcquireNextImageKHR(context.device, context.swapChain, UINT64_MAX, state.presentCompleteSemaphore, VK_NULL_HANDLE, &context.currentBuffer);
 
-        //assert(res == VK_SUCCESS);
-        res = vkQueuePresentKHR(info.present_queue, &present);
-        assert(res == VK_SUCCESS);
+	// Use a fence to wait until the command buffer has finished execution before using it again
+	res = (vkWaitForFences(context.device, 1, &state.waitFences[context.currentBuffer], VK_TRUE, UINT64_MAX));
+	res = (vkResetFences(context.device, 1, &state.waitFences[context.currentBuffer]));
 
-    }
-    /* VULKAN_KEY_END */
-    if (info.save_images) write_ppm(info, "15-draw_cube");
+	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+	VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// The submit info structure specifices a command buffer queue submission batch
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = &waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = &state.presentCompleteSemaphore;							// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &state.renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+	submitInfo.pCommandBuffers = &context.cmdBuffer[context.currentBuffer];					// Command buffers(s) to execute in this batch (submission)
+	submitInfo.commandBufferCount = 1;												// One command buffer
 
-    vkDestroySemaphore(info.device, imageAcquiredSemaphore, NULL);
-    vkDestroyFence(info.device, drawFence, NULL);
-    destroy_pipeline(info);
-    destroy_pipeline_cache(info);
-    destroy_descriptor_pool(info);
-    destroy_vertex_buffer(info);
-    destroy_framebuffers(info);
-    destroy_shaders(info);
-    destroy_renderpass(info);
-    destroy_descriptor_and_pipeline_layouts(info);
-    destroy_uniform_buffer(info);
-    destroy_depth_buffer(info);
-    destroy_swap_chain(info);
-    destroy_command_buffer(info);
-    destroy_command_pool(info);
-    destroy_device(info);
-    destroy_window(info);
-    destroy_instance(info);
-    return 0;
+	// Submit to the graphics queue passing a wait fence
+	res = (vkQueueSubmit(context.queue, 1, &submitInfo, state.waitFences[context.currentBuffer]));
+
+	VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.pNext = NULL;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &context.swapChain;
+	presentInfo.pImageIndices = &context.currentBuffer;
+	// Check if a wait semaphore has been specified to wait for before presenting the image
+	if (state.renderCompleteSemaphore != VK_NULL_HANDLE){
+		presentInfo.pWaitSemaphores = &state.renderCompleteSemaphore;
+		presentInfo.waitSemaphoreCount = 1;
+	}
+	res = vkQueuePresentKHR(context.queue, &presentInfo);
+	assert(res == VK_SUCCESS);
+
+
+}
+
+void setupDescriptorPool(struct LHContext& context, struct appState& state)
+{
+	VkResult U_ASSERT_ONLY res;
+
+	// We need to tell the API the number of max. requested descriptors per type
+	VkDescriptorPoolSize typeCounts[1];
+	// This example only uses one descriptor type (uniform buffer) and only requests one descriptor of this type
+	typeCounts[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	typeCounts[0].descriptorCount = 1;
+	// For additional types you need to add new entries in the type count list
+	// E.g. for two combined image samplers :
+	// typeCounts[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	// typeCounts[1].descriptorCount = 2;
+
+	// Create the global descriptor pool
+	// All descriptors used in this example are allocated from this pool
+	VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
+	descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	descriptorPoolInfo.pNext = nullptr;
+	descriptorPoolInfo.poolSizeCount = 1;
+	descriptorPoolInfo.pPoolSizes = typeCounts;
+	// Set the max. number of descriptor sets that can be requested from this pool (requesting beyond this limit will result in an error)
+	descriptorPoolInfo.maxSets = 1;
+
+	res = (vkCreateDescriptorPool(context.device, &descriptorPoolInfo, nullptr, &context.descriptorPool));
+}
+
+void setupDescriptorSetLayout(struct LHContext& context, struct appState& state)
+{
+	VkResult U_ASSERT_ONLY res;
+
+	// Setup layout of descriptors used in this example
+	// Basically connects the different shader stages to descriptors for binding uniform buffers, image samplers, etc.
+	// So every shader binding should map to one descriptor set layout binding
+
+	// Binding 0: Uniform buffer (Vertex shader)
+	VkDescriptorSetLayoutBinding layoutBinding = {};
+	layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	layoutBinding.descriptorCount = 1;
+	layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	layoutBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo descriptorLayout = {};
+	descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptorLayout.pNext = nullptr;
+	descriptorLayout.bindingCount = 1;
+	descriptorLayout.pBindings = &layoutBinding;
+
+	res = (vkCreateDescriptorSetLayout(context.device, &descriptorLayout, nullptr, &state.descriptorSetLayout));
+
+	// Create the pipeline layout that is used to generate the rendering pipelines that are based on this descriptor set layout
+	// In a more complex scenario you would have different pipeline layouts for different descriptor set layouts that could be reused
+	VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = {};
+	pPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pPipelineLayoutCreateInfo.pNext = nullptr;
+	pPipelineLayoutCreateInfo.setLayoutCount = 1;
+	pPipelineLayoutCreateInfo.pSetLayouts = &state.descriptorSetLayout;
+
+	res = (vkCreatePipelineLayout(context.device, &pPipelineLayoutCreateInfo, nullptr, &state.pipelineLayout));
+}
+
+void setupDescriptorSet(struct LHContext& context, struct appState& state)
+{
+	VkResult U_ASSERT_ONLY res;
+
+	// Allocate a new descriptor set from the global descriptor pool
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = context.descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &state.descriptorSetLayout;
+
+	res =(vkAllocateDescriptorSets(context.device, &allocInfo, &state.descriptorSet));
+
+	// Update the descriptor set determining the shader binding points
+	// For every binding point used in a shader there needs to be one
+	// descriptor set matching that binding point
+
+	VkWriteDescriptorSet writeDescriptorSet = {};
+
+	// Binding 0 : Uniform buffer
+	writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writeDescriptorSet.dstSet = state.descriptorSet;
+	writeDescriptorSet.descriptorCount = 1;
+	writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	writeDescriptorSet.pBufferInfo = &state.uniformBufferVS.descriptor;
+	// Binds this uniform buffer to binding point 0
+	writeDescriptorSet.dstBinding = 0;
+
+	vkUpdateDescriptorSets(context.device, 1, &writeDescriptorSet, 0, nullptr);
+}
+
+void setupDepthStencil(struct LHContext& context, struct appState& state){
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+	// Create an optimal image used as the depth stencil attachment
+	VkImageCreateInfo image = {};
+	image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	image.imageType = VK_IMAGE_TYPE_2D;
+	image.format = context.depth.format;
+	// Use example's height and width
+	image.extent = {static_cast<uint32_t>( context.width), static_cast<uint32_t>(context.height), 1 };
+	image.mipLevels = 1;
+	image.arrayLayers = 1;
+	image.samples = VK_SAMPLE_COUNT_1_BIT;
+	image.tiling = VK_IMAGE_TILING_OPTIMAL;
+	image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	image.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	res =(vkCreateImage(context.device, &image, nullptr, &context.depth.image));
+
+	// Allocate memory for the image (device local) and bind it to our image
+	VkMemoryAllocateInfo memAlloc = {};
+	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	VkMemoryRequirements memReqs;
+	vkGetImageMemoryRequirements(context.device, context.depth.image, &memReqs);
+	memAlloc.allocationSize = memReqs.size;
+	pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memAlloc.memoryTypeIndex);
+	assert(pass && "No mappable coherent memory");	
+	res =(vkAllocateMemory(context.device, &memAlloc, nullptr, &context.depth.mem));
+	res =(vkBindImageMemory(context.device, context.depth.image, context.depth.mem, 0));
+
+	// Create a view for the depth stencil image
+	// Images aren't directly accessed in Vulkan, but rather through views described by a subresource range
+	// This allows for multiple views of one image with differing ranges (e.g. for different layers)
+	VkImageViewCreateInfo depthStencilView = {};
+	depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	depthStencilView.format = context.depth.format;
+	depthStencilView.subresourceRange = {};
+	depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	depthStencilView.subresourceRange.baseMipLevel = 0;
+	depthStencilView.subresourceRange.levelCount = 1;
+	depthStencilView.subresourceRange.baseArrayLayer = 0;
+	depthStencilView.subresourceRange.layerCount = 1;
+	depthStencilView.image = context.depth.image;
+	res =(vkCreateImageView(context.device, &depthStencilView, nullptr, &context.depth.view));
+}
+
+void setupFrameBuffer(struct LHContext& context, struct appState& state, bool useStagingBuffers){
+	VkResult U_ASSERT_ONLY res;
+	// Create a frame buffer for every image in the swapchain
+	context.frameBuffers.resize(context.swapchainImageCount);
+	for (size_t i = 0; i < context.frameBuffers.size(); i++){
+		std::array<VkImageView, 2> attachments;
+		attachments[0] = context.buffers[i].view;									// Color attachment is the view of the swapchain image			
+		attachments[1] = context.depth.view;											// Depth/Stencil attachment is the same for all frame buffers			
+
+		VkFramebufferCreateInfo frameBufferCreateInfo = {};
+		frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		// All frame buffers use the same renderpass setup
+		frameBufferCreateInfo.renderPass = context.render_pass;
+		frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		frameBufferCreateInfo.pAttachments = attachments.data();
+		frameBufferCreateInfo.width = context.width;
+		frameBufferCreateInfo.height = context.height;
+		frameBufferCreateInfo.layers = 1;
+		// Create the framebuffer
+		res =(vkCreateFramebuffer(context.device, &frameBufferCreateInfo, nullptr, &context.frameBuffers[i]));
+	}
+}
+
+void setupRenderPass(struct LHContext& context, struct appState& state, bool useStagingBuffers){
+	VkResult U_ASSERT_ONLY res;
+	// This example will use a single render pass with one subpass
+
+	// Descriptors for the attachments used by this renderpass
+	std::array<VkAttachmentDescription, 2> attachments = {};
+
+	// Color attachment
+	attachments[0].format = context.format;									// Use the color format selected by the swapchain
+	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;									// We don't use multi sampling in this example
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;							// Clear this attachment at the start of the render pass
+	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;							// Keep it's contents after the render pass is finished (for displaying it)
+	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;					// We don't use stencil, so don't care for load
+	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;				// Same for store
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;						// Layout at render pass start. Initial doesn't matter, so we use undefined
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;					// Layout to which the attachment is transitioned when the render pass is finished
+																					// As we want to present the color buffer to the swapchain, we transition to PRESENT_KHR	
+	// Depth attachment
+	attachments[1].format = context.depth.format;											// A proper depth format is selected in the example base
+	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;							// Clear depth at start of first subpass
+	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;						// We don't need depth after render pass has finished (DONT_CARE may result in better performance)
+	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;					// No stencil
+	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;				// No Stencil
+	attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;						// Layout at render pass start. Initial doesn't matter, so we use undefined
+	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;	// Transition to depth/stencil attachment
+
+	// Setup attachment references
+	VkAttachmentReference colorReference = {};
+	colorReference.attachment = 0;													// Attachment 0 is color
+	colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;				// Attachment layout used as color during the subpass
+
+	VkAttachmentReference depthReference = {};
+	depthReference.attachment = 1;													// Attachment 1 is color
+	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;		// Attachment used as depth/stemcil used during the subpass
+
+	// Setup a single subpass reference
+	VkSubpassDescription subpassDescription = {};
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescription.colorAttachmentCount = 1;									// Subpass uses one color attachment
+	subpassDescription.pColorAttachments = &colorReference;							// Reference to the color attachment in slot 0
+	subpassDescription.pDepthStencilAttachment = &depthReference;					// Reference to the depth attachment in slot 1
+	subpassDescription.inputAttachmentCount = 0;									// Input attachments can be used to sample from contents of a previous subpass
+	subpassDescription.pInputAttachments = nullptr;									// (Input attachments not used by this example)
+	subpassDescription.preserveAttachmentCount = 0;									// Preserved attachments can be used to loop (and preserve) attachments through subpasses
+	subpassDescription.pPreserveAttachments = nullptr;								// (Preserve attachments not used by this example)
+	subpassDescription.pResolveAttachments = nullptr;								// Resolve attachments are resolved at the end of a sub pass and can be used for e.g. multi sampling
+
+	// Setup subpass dependencies
+	// These will add the implicit ttachment layout transitionss specified by the attachment descriptions
+	// The actual usage layout is preserved through the layout specified in the attachment reference		
+	// Each subpass dependency will introduce a memory and execution dependency between the source and dest subpass described by
+	// srcStageMask, dstStageMask, srcAccessMask, dstAccessMask (and dependencyFlags is set)
+	// Note: VK_SUBPASS_EXTERNAL is a special constant that refers to all commands executed outside of the actual renderpass)
+	std::array<VkSubpassDependency, 2> dependencies;
+
+	// First dependency at the start of the renderpass
+	// Does the transition from final to initial layout 
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;								// Producer of the dependency 
+	dependencies[0].dstSubpass = 0;													// Consumer is our single subpass that will wait for the execution depdendency
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	// Second dependency at the end the renderpass
+	// Does the transition from the initial to the final layout
+	dependencies[1].srcSubpass = 0;													// Producer of the dependency is our single subpass
+	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;								// Consumer are all commands outside of the renderpass
+	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	// Create the actual renderpass
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());		// Number of attachments used by this render pass
+	renderPassInfo.pAttachments = attachments.data();								// Descriptions of the attachments used by the render pass
+	renderPassInfo.subpassCount = 1;												// We only use one subpass in this example
+	renderPassInfo.pSubpasses = &subpassDescription;								// Description of that subpass
+	renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());	// Number of subpass dependencies
+	renderPassInfo.pDependencies = dependencies.data();								// Subpass dependencies used by the render pass
+
+	res =(vkCreateRenderPass(context.device, &renderPassInfo, nullptr, &context.render_pass));
+}
+
+VkShaderModule loadSPIRVShader(struct LHContext& context,std::string filename)
+{
+	VkResult U_ASSERT_ONLY res;
+	size_t shaderSize;
+	char* shaderCode = NULL;
+
+#if defined(__ANDROID__)
+	// Load shader from compressed asset
+	AAsset* asset = AAssetManager_open(androidApp->activity->assetManager, filename.c_str(), AASSET_MODE_STREAMING);
+	assert(asset);
+	shaderSize = AAsset_getLength(asset);
+	assert(shaderSize > 0);
+
+	shaderCode = new char[shaderSize];
+	AAsset_read(asset, shaderCode, shaderSize);
+	AAsset_close(asset);
+#else
+	std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
+
+	if (is.is_open())
+	{
+		shaderSize = is.tellg();
+		is.seekg(0, std::ios::beg);
+		// Copy file contents into a buffer
+		shaderCode = new char[shaderSize];
+		is.read(shaderCode, shaderSize);
+		is.close();
+		assert(shaderSize > 0);
+	}
+#endif
+	if (shaderCode)
+	{
+		// Create a new shader module that will be used for pipeline creation
+		VkShaderModuleCreateInfo moduleCreateInfo{};
+		moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		moduleCreateInfo.codeSize = shaderSize;
+		moduleCreateInfo.pCode = (uint32_t*)shaderCode;
+
+		VkShaderModule shaderModule;
+		res =(vkCreateShaderModule(context.device, &moduleCreateInfo, NULL, &shaderModule));
+
+		delete[] shaderCode;
+
+		return shaderModule;
+	}
+	else
+	{
+		std::cerr << "Error: Could not open shader file \"" << filename << "\"" << std::endl;
+		return VK_NULL_HANDLE;
+	}
+}
+
+void preparePipelines(struct LHContext& context, struct appState& state)
+{
+	VkResult U_ASSERT_ONLY res;
+	// Create the graphics pipeline used in this example
+	// Vulkan uses the concept of rendering pipelines to encapsulate fixed states, replacing OpenGL's complex state machine
+	// A pipeline is then stored and hashed on the GPU making pipeline changes very fast
+	// Note: There are still a few dynamic states that are not directly part of the pipeline (but the info that they are used is)
+
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
+	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	// The layout used for this pipeline (can be shared among multiple pipelines using the same layout)
+	pipelineCreateInfo.layout = state.pipelineLayout;
+	// Renderpass this pipeline is attached to
+	pipelineCreateInfo.renderPass = context.render_pass;
+
+	// Construct the differnent states making up the pipeline
+
+	// Input assembly state describes how primitives are assembled
+	// This pipeline will assemble vertex data as a triangle lists (though we only use one triangle)
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {};
+	inputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	// Rasterization state
+	VkPipelineRasterizationStateCreateInfo rasterizationState = {};
+	rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizationState.cullMode = VK_CULL_MODE_NONE;
+	rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizationState.depthClampEnable = VK_FALSE;
+	rasterizationState.rasterizerDiscardEnable = VK_FALSE;
+	rasterizationState.depthBiasEnable = VK_FALSE;
+	rasterizationState.lineWidth = 1.0f;
+
+	// Color blend state describes how blend factors are calculated (if used)
+	// We need one blend attachment state per color attachment (even if blending is not used
+	VkPipelineColorBlendAttachmentState blendAttachmentState[1] = {};
+	blendAttachmentState[0].colorWriteMask = 0xf;
+	blendAttachmentState[0].blendEnable = VK_FALSE;
+	VkPipelineColorBlendStateCreateInfo colorBlendState = {};
+	colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	colorBlendState.attachmentCount = 1;
+	colorBlendState.pAttachments = blendAttachmentState;
+
+	// Viewport state sets the number of viewports and scissor used in this pipeline
+	// Note: This is actually overriden by the dynamic states (see below)
+	VkPipelineViewportStateCreateInfo viewportState = {};
+	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.viewportCount = 1;
+	viewportState.scissorCount = 1;
+
+	// Enable dynamic states
+	// Most states are baked into the pipeline, but there are still a few dynamic states that can be changed within a command buffer
+	// To be able to change these we need do specify which dynamic states will be changed using this pipeline. Their actual states are set later on in the command buffer.
+	// For this example we will set the viewport and scissor using dynamic states
+	std::vector<VkDynamicState> dynamicStateEnables;
+	dynamicStateEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+	dynamicStateEnables.push_back(VK_DYNAMIC_STATE_SCISSOR);
+	VkPipelineDynamicStateCreateInfo dynamicState = {};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.pDynamicStates = dynamicStateEnables.data();
+	dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+
+	// Depth and stencil state containing depth and stencil compare and test operations
+	// We only use depth tests and want depth tests and writes to be enabled and compare with less or equal
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = {};
+	depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilState.depthTestEnable = VK_TRUE;
+	depthStencilState.depthWriteEnable = VK_TRUE;
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depthStencilState.depthBoundsTestEnable = VK_FALSE;
+	depthStencilState.back.failOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.back.passOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.back.compareOp = VK_COMPARE_OP_ALWAYS;
+	depthStencilState.stencilTestEnable = VK_FALSE;
+	depthStencilState.front = depthStencilState.back;
+
+	// Multi sampling state
+	// This example does not make use fo multi sampling (for anti-aliasing), the state must still be set and passed to the pipeline
+	VkPipelineMultisampleStateCreateInfo multisampleState = {};
+	multisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampleState.pSampleMask = nullptr;
+
+	// Vertex input descriptions 
+	// Specifies the vertex input parameters for a pipeline
+
+	// Vertex input binding
+	// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
+	VkVertexInputBindingDescription vertexInputBinding = {};
+	vertexInputBinding.binding = 0;
+	vertexInputBinding.stride = sizeof(Vertex);
+	vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	// Inpute attribute bindings describe shader attribute locations and memory layouts
+	std::array<VkVertexInputAttributeDescription, 2> vertexInputAttributs;
+	// These match the following shader layout (see triangle.vert):
+	//	layout (location = 0) in vec3 inPos;
+	//	layout (location = 1) in vec3 inColor;
+	// Attribute location 0: Position
+	vertexInputAttributs[0].binding = 0;
+	vertexInputAttributs[0].location = 0;
+	// Position attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
+	vertexInputAttributs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	vertexInputAttributs[0].offset = offsetof(Vertex, position);
+	// Attribute location 1: Color
+	vertexInputAttributs[1].binding = 0;
+	vertexInputAttributs[1].location = 1;
+	// Color attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
+	vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	vertexInputAttributs[1].offset = offsetof(Vertex, color);
+
+	// Vertex input state used for pipeline creation
+	VkPipelineVertexInputStateCreateInfo vertexInputState = {};
+	vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputState.vertexBindingDescriptionCount = 1;
+	vertexInputState.pVertexBindingDescriptions = &vertexInputBinding;
+	vertexInputState.vertexAttributeDescriptionCount = 2;
+	vertexInputState.pVertexAttributeDescriptions = vertexInputAttributs.data();
+
+	// Shaders
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
+
+	// Vertex shader
+	shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	// Set pipeline stage for this shader
+	shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+	// Load binary SPIR-V shader
+	shaderStages[0].module = loadSPIRVShader(context, "./../data/shaders/triangle/triangle.vert.spv");
+	// Main entry point for the shader
+	shaderStages[0].pName = "main";
+	assert(shaderStages[0].module != VK_NULL_HANDLE);
+
+	// Fragment shader
+	shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	// Set pipeline stage for this shader
+	shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	// Load binary SPIR-V shader
+	shaderStages[1].module = loadSPIRVShader(context, "./../data/shaders/triangle/triangle.frag.spv");
+	// Main entry point for the shader
+	shaderStages[1].pName = "main";
+	assert(shaderStages[1].module != VK_NULL_HANDLE);
+
+	// Set pipeline shader stage info
+	pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+	pipelineCreateInfo.pStages = shaderStages.data();
+
+	// Assign the pipeline states to the pipeline creation info structure
+	pipelineCreateInfo.pVertexInputState = &vertexInputState;
+	pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
+	pipelineCreateInfo.pRasterizationState = &rasterizationState;
+	pipelineCreateInfo.pColorBlendState = &colorBlendState;
+	pipelineCreateInfo.pMultisampleState = &multisampleState;
+	pipelineCreateInfo.pViewportState = &viewportState;
+	pipelineCreateInfo.pDepthStencilState = &depthStencilState;
+	pipelineCreateInfo.renderPass = context.render_pass;
+	pipelineCreateInfo.pDynamicState = &dynamicState;
+
+	// Create rendering pipeline using the specified states
+	res =(vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipeline));
+
+	// Shader modules are no longer needed once the graphics pipeline has been created
+	vkDestroyShaderModule(context.device, shaderStages[0].module, nullptr);
+	vkDestroyShaderModule(context.device, shaderStages[1].module, nullptr);
+}
+
+void updateUniformBuffers(struct LHContext& context, struct appState& state){
+	VkResult U_ASSERT_ONLY res;
+	// Update matrices
+	state.uboVS.projectionMatrix = glm::perspective(glm::radians(60.0f), (float)context.width / (float)context.height, 0.1f, 256.0f);
+
+	state.uboVS.viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f));
+
+	state.uboVS.modelMatrix = glm::mat4(1.0f);
+	state.uboVS.modelMatrix = glm::rotate(state.uboVS.modelMatrix, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+	state.uboVS.modelMatrix = glm::rotate(state.uboVS.modelMatrix, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+	state.uboVS.modelMatrix = glm::rotate(state.uboVS.modelMatrix, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	// Map uniform buffer and update it
+	uint8_t* pData;
+	res = (vkMapMemory(context.device, state.uniformBufferVS.memory, 0, sizeof(state.uboVS), 0, (void**)&pData));
+	memcpy(pData, &state.uboVS, sizeof(state.uboVS));
+	// Unmap after data has been copied
+	// Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the GPU
+	vkUnmapMemory(context.device, state.uniformBufferVS.memory);
+}
+
+void prepareUniformBuffers(struct LHContext& context, struct appState& state){
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+	// Prepare and initialize a uniform buffer block containing shader uniforms
+	// Single uniforms like in OpenGL are no longer present in Vulkan. All Shader uniforms are passed via uniform buffer blocks
+	VkMemoryRequirements memReqs;
+
+	// Vertex shader uniform buffer block
+	VkBufferCreateInfo bufferInfo = {};
+	VkMemoryAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.pNext = nullptr;
+	allocInfo.allocationSize = 0;
+	allocInfo.memoryTypeIndex = 0;
+
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = sizeof(state.uboVS);
+	// This buffer will be used as a uniform buffer
+	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+	// Create a new buffer
+	res =(vkCreateBuffer(context.device, &bufferInfo, nullptr, &state.uniformBufferVS.buffer));
+	// Get memory requirements including size, alignment and memory type 
+	vkGetBufferMemoryRequirements(context.device, state.uniformBufferVS.buffer, &memReqs);
+	allocInfo.allocationSize = memReqs.size;
+	// Get the memory type index that supports host visibile memory access
+	// Most implementations offer multiple memory types and selecting the correct one to allocate memory from is crucial
+	// We also want the buffer to be host coherent so we don't have to flush (or sync after every update.
+	// Note: This may affect performance so you might not want to do this in a real world application that updates buffers on a regular base
+	pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &allocInfo.memoryTypeIndex);
+	assert(pass && "No mappable coherent memory");	
+	// Allocate memory for the uniform buffer
+	res =(vkAllocateMemory(context.device, &allocInfo, nullptr, &(state.uniformBufferVS.memory)));
+	// Bind memory to buffer
+	res =(vkBindBufferMemory(context.device, state.uniformBufferVS.buffer, state.uniformBufferVS.memory, 0));
+
+	// Store information in the uniform's descriptor that is used by the descriptor set
+	state.uniformBufferVS.descriptor.buffer = state.uniformBufferVS.buffer;
+	state.uniformBufferVS.descriptor.offset = 0;
+	state.uniformBufferVS.descriptor.range = sizeof(state.uboVS);
+
+	updateUniformBuffers(context, state);
+}
+
+void prepareVertices(struct LHContext& context, struct appState& state,bool useStagingBuffers){
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+	// A note on memory management in Vulkan in general:
+	//	This is a very complex topic and while it's fine for an example application to to small individual memory allocations that is not
+	//	what should be done a real-world application, where you should allocate large chunkgs of memory at once isntead.
+
+	// Setup vertices
+	std::vector<Vertex> vertexBuffer ={
+		{ {  1.0f,  1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
+		{ { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+		{ {  0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+	};
+	uint32_t vertexBufferSize = static_cast<uint32_t>(vertexBuffer.size()) * sizeof(Vertex);
+
+	// Setup indices
+	std::vector<uint32_t> indexBuffer = { 0, 1, 2 };
+	state.i.count = static_cast<uint32_t>(indexBuffer.size());
+	uint32_t indexBufferSize = state.i.count * sizeof(uint32_t);
+
+	VkMemoryAllocateInfo memAlloc = {};
+	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	VkMemoryRequirements memReqs;
+
+	void* data;
+
+	if (useStagingBuffers){
+		//// Static data like vertex and index buffer should be stored on the device memory 
+		//// for optimal (and fastest) access by the GPU
+		////
+		//// To achieve this we use so-called "staging buffers" :
+		//// - Create a buffer that's visible to the host (and can be mapped)
+		//// - Copy the data to this buffer
+		//// - Create another buffer that's local on the device (VRAM) with the same size
+		//// - Copy the data from the host to the device using a command buffer
+		//// - Delete the host visible (staging) buffer
+		//// - Use the device local buffers for rendering
+
+		//struct StagingBuffer {
+		//	VkDeviceMemory memory;
+		//	VkBuffer buffer;
+		//};
+
+		//struct {
+		//	StagingBuffer vertices;
+		//	StagingBuffer indices;
+		//} stagingBuffers;
+
+		//// Vertex buffer
+		//VkBufferCreateInfo vertexBufferInfo = {};
+		//vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		//vertexBufferInfo.size = vertexBufferSize;
+		//// Buffer is used as the copy source
+		//vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		//// Create a host-visible buffer to copy the vertex data to (staging buffer)
+		//res =(vkCreateBuffer(device, &vertexBufferInfo, nullptr, &stagingBuffers.vertices.buffer));
+		//vkGetBufferMemoryRequirements(device, stagingBuffers.vertices.buffer, &memReqs);
+		//memAlloc.allocationSize = memReqs.size;
+		//// Request a host visible memory type that can be used to copy our data do
+		//// Also request it to be coherent, so that writes are visible to the GPU right after unmapping the buffer
+		//memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		//res =(vkAllocateMemory(device, &memAlloc, nullptr, &stagingBuffers.vertices.memory));
+		//// Map and copy
+		//res =(vkMapMemory(device, stagingBuffers.vertices.memory, 0, memAlloc.allocationSize, 0, &data));
+		//memcpy(data, vertexBuffer.data(), vertexBufferSize);
+		//vkUnmapMemory(device, stagingBuffers.vertices.memory);
+		//res =(vkBindBufferMemory(device, stagingBuffers.vertices.buffer, stagingBuffers.vertices.memory, 0));
+
+		//// Create a device local buffer to which the (host local) vertex data will be copied and which will be used for rendering
+		//vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		//res =(vkCreateBuffer(device, &vertexBufferInfo, nullptr, &vertices.buffer));
+		//vkGetBufferMemoryRequirements(device, vertices.buffer, &memReqs);
+		//memAlloc.allocationSize = memReqs.size;
+		//memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		//res =(vkAllocateMemory(device, &memAlloc, nullptr, &vertices.memory));
+		//res =(vkBindBufferMemory(device, vertices.buffer, vertices.memory, 0));
+
+		//// Index buffer
+		//VkBufferCreateInfo indexbufferInfo = {};
+		//indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		//indexbufferInfo.size = indexBufferSize;
+		//indexbufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		//// Copy index data to a buffer visible to the host (staging buffer)
+		//res =(vkCreateBuffer(device, &indexbufferInfo, nullptr, &stagingBuffers.indices.buffer));
+		//vkGetBufferMemoryRequirements(device, stagingBuffers.indices.buffer, &memReqs);
+		//memAlloc.allocationSize = memReqs.size;
+		//memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		//res =(vkAllocateMemory(device, &memAlloc, nullptr, &stagingBuffers.indices.memory));
+		//res =(vkMapMemory(device, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data));
+		//memcpy(data, indexBuffer.data(), indexBufferSize);
+		//vkUnmapMemory(device, stagingBuffers.indices.memory);
+		//res =(vkBindBufferMemory(device, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0));
+
+		//// Create destination buffer with device only visibility
+		//indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		//res =(vkCreateBuffer(device, &indexbufferInfo, nullptr, &indices.buffer));
+		//vkGetBufferMemoryRequirements(device, indices.buffer, &memReqs);
+		//memAlloc.allocationSize = memReqs.size;
+		//memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		//res =(vkAllocateMemory(device, &memAlloc, nullptr, &indices.memory));
+		//res =(vkBindBufferMemory(device, indices.buffer, indices.memory, 0));
+
+		//// Buffer copies have to be submitted to a queue, so we need a command buffer for them
+		//// Note: Some devices offer a dedicated transfer queue (with only the transfer bit set) that may be faster when doing lots of copies
+		//VkCommandBuffer copyCmd = getCommandBuffer(true);
+
+		//// Put buffer region copies into command buffer
+		//VkBufferCopy copyRegion = {};
+
+		//// Vertex buffer
+		//copyRegion.size = vertexBufferSize;
+		//vkCmdCopyBuffer(copyCmd, stagingBuffers.vertices.buffer, vertices.buffer, 1, &copyRegion);
+		//// Index buffer
+		//copyRegion.size = indexBufferSize;
+		//vkCmdCopyBuffer(copyCmd, stagingBuffers.indices.buffer, indices.buffer, 1, &copyRegion);
+
+		//// Flushing the command buffer will also submit it to the queue and uses a fence to ensure that all commands have been executed before returning
+		//flushCommandBuffer(copyCmd);
+
+		//// Destroy staging buffers
+		//// Note: Staging buffer must not be deleted before the copies have been submitted and executed
+		//vkDestroyBuffer(device, stagingBuffers.vertices.buffer, nullptr);
+		//vkFreeMemory(device, stagingBuffers.vertices.memory, nullptr);
+		//vkDestroyBuffer(device, stagingBuffers.indices.buffer, nullptr);
+		//vkFreeMemory(device, stagingBuffers.indices.memory, nullptr);
+	}
+	else{
+		// Don't use staging
+		// Create host-visible buffers only and use these for rendering. This is not advised and will usually result in lower rendering performance
+
+		// Vertex buffer
+		VkBufferCreateInfo vertexBufferInfo = {};
+		vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		vertexBufferInfo.size = vertexBufferSize;
+		vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+		
+		// Copy vertex data to a buffer visible to the host
+		res = (vkCreateBuffer(context.device, &vertexBufferInfo, nullptr, &state.v.buffer));
+		assert(res == VK_SUCCESS);
+		vkGetBufferMemoryRequirements(context.device, state.v.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+
+		pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
+		assert(pass && "No mappable coherent memory");		
+		res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &state.v.memory));
+		assert(res == VK_SUCCESS);
+		res = (vkMapMemory(context.device, state.v.memory, 0, memAlloc.allocationSize, 0, &data));
+		assert(res == VK_SUCCESS);
+		memcpy(data, vertexBuffer.data(), vertexBufferSize);
+		vkUnmapMemory(context.device, state.v.memory);
+		res = (vkBindBufferMemory(context.device, state.v.buffer, state.v.memory, 0));
+		assert(res == VK_SUCCESS);
+
+		// Index buffer
+		VkBufferCreateInfo indexbufferInfo = {};
+		indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		indexbufferInfo.size = indexBufferSize;
+		indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+		// Copy index data to a buffer visible to the host
+		res = (vkCreateBuffer(context.device, &indexbufferInfo, nullptr, &state.i.buffer));
+		assert(res == VK_SUCCESS);
+		vkGetBufferMemoryRequirements(context.device, state.i.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
+		assert(pass && "No mappable coherent memory");
+		res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &state.i.memory));
+		assert(res == VK_SUCCESS);
+		res = (vkMapMemory(context.device, state.i.memory, 0, indexBufferSize, 0, &data));
+		assert(res == VK_SUCCESS);
+		memcpy(data, indexBuffer.data(), indexBufferSize);
+		vkUnmapMemory(context.device, state.i.memory);
+		res = (vkBindBufferMemory(context.device, state.i.buffer, state.i.memory, 0));
+		assert(res == VK_SUCCESS);
+	}
+}
+
+void renderLoop(struct LHContext &context, struct appState& state){
+
+	while (!glfwWindowShouldClose(context.window)) {
+		glfwPollEvents();
+		draw(context, state);
+		updateUniformBuffers(context, state);
+	}
+
+	// Flush device to make sure all resources can be freed
+	if (context.device != VK_NULL_HANDLE) {
+		vkDeviceWaitIdle(context.device);
+	}
+}
+
+int main() {
+	struct LHContext context = {};
+	struct appState state = {};
+	createInstance(context);
+	createDeviceInfo(context);
+	createWindowContext(context, 1280, 720);
+	createSwapChainExtention(context);
+	createDevice(context);
+	createDeviceQueue(context);
+	createSynchObject(context);
+	createCommandPool(context);
+	createSwapChain(context);
+	createCommandBuffer(context);
+	createSynchPrimitive(context);
+	createDepthBuffers(context);
+	createRenderPass(context);
+	createPipeLineCache(context);
+	createFrameBuffer(context);
+
+	//---> Implement our own functions
+	prepareSynchronizationPrimitives(context, state);
+	prepareVertices(context, state, false);
+	prepareUniformBuffers(context, state);
+	setupDescriptorSetLayout(context, state);
+	preparePipelines(context, state);
+	setupDescriptorPool(context, state);
+	setupDescriptorSet(context, state);
+	buildCommandBuffers(context, state);
+
+	renderLoop(context, state);
+
+	return 0;
 }
