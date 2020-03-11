@@ -795,424 +795,11 @@ VkResult mapVerticiesToGPU(struct LHContext& context,struct vertices &v,struct i
 	VkMemoryAllocateInfo memAlloc = {};
 	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	VkMemoryRequirements memReqs;
-	
-	/*
+	void *data;
 
-		void *data;
-
-		if (useStagingBuffers)
-		{
-			// Static data like vertex and index buffer should be stored on the device memory 
-			// for optimal (and fastest) access by the GPU
-			//
-			// To achieve this we use so-called "staging buffers" :
-			// - Create a buffer that's visible to the host (and can be mapped)
-			// - Copy the data to this buffer
-			// - Create another buffer that's local on the device (VRAM) with the same size
-			// - Copy the data from the host to the device using a command buffer
-			// - Delete the host visible (staging) buffer
-			// - Use the device local buffers for rendering
-
-			struct StagingBuffer {
-				VkDeviceMemory memory;
-				VkBuffer buffer;
-			};
-
-			struct {
-				StagingBuffer vertices;
-				StagingBuffer indices;
-			} stagingBuffers;
-
-			// Vertex buffer
-			VkBufferCreateInfo vertexBufferInfo = {};
-			vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-			vertexBufferInfo.size = vertexBufferSize;
-			// Buffer is used as the copy source
-			vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-			// Create a host-visible buffer to copy the vertex data to (staging buffer)
-			VK_CHECK_RESULT(vkCreateBuffer(device, &vertexBufferInfo, nullptr, &stagingBuffers.vertices.buffer));
-			vkGetBufferMemoryRequirements(device, stagingBuffers.vertices.buffer, &memReqs);
-			memAlloc.allocationSize = memReqs.size;
-			// Request a host visible memory type that can be used to copy our data do
-			// Also request it to be coherent, so that writes are visible to the GPU right after unmapping the buffer
-			memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-			VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &stagingBuffers.vertices.memory));
-			// Map and copy
-			VK_CHECK_RESULT(vkMapMemory(device, stagingBuffers.vertices.memory, 0, memAlloc.allocationSize, 0, &data));
-			memcpy(data, vertexBuffer.data(), vertexBufferSize);
-			vkUnmapMemory(device, stagingBuffers.vertices.memory);
-			VK_CHECK_RESULT(vkBindBufferMemory(device, stagingBuffers.vertices.buffer, stagingBuffers.vertices.memory, 0));
-
-			// Create a device local buffer to which the (host local) vertex data will be copied and which will be used for rendering
-			vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-			VK_CHECK_RESULT(vkCreateBuffer(device, &vertexBufferInfo, nullptr, &vertices.buffer));
-			vkGetBufferMemoryRequirements(device, vertices.buffer, &memReqs);
-			memAlloc.allocationSize = memReqs.size;
-			memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &vertices.memory));
-			VK_CHECK_RESULT(vkBindBufferMemory(device, vertices.buffer, vertices.memory, 0));
-
-			// Index buffer
-			VkBufferCreateInfo indexbufferInfo = {};
-			indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-			indexbufferInfo.size = indexBufferSize;
-			indexbufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-			// Copy index data to a buffer visible to the host (staging buffer)
-			VK_CHECK_RESULT(vkCreateBuffer(device, &indexbufferInfo, nullptr, &stagingBuffers.indices.buffer));
-			vkGetBufferMemoryRequirements(device, stagingBuffers.indices.buffer, &memReqs);
-			memAlloc.allocationSize = memReqs.size;
-			memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-			VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &stagingBuffers.indices.memory));
-			VK_CHECK_RESULT(vkMapMemory(device, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data));
-			memcpy(data, indexBuffer.data(), indexBufferSize);
-			vkUnmapMemory(device, stagingBuffers.indices.memory);
-			VK_CHECK_RESULT(vkBindBufferMemory(device, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0));
-
-			// Create destination buffer with device only visibility
-			indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-			VK_CHECK_RESULT(vkCreateBuffer(device, &indexbufferInfo, nullptr, &indices.buffer));
-			vkGetBufferMemoryRequirements(device, indices.buffer, &memReqs);
-			memAlloc.allocationSize = memReqs.size;
-			memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &indices.memory));
-			VK_CHECK_RESULT(vkBindBufferMemory(device, indices.buffer, indices.memory, 0));
-
-			// Buffer copies have to be submitted to a queue, so we need a command buffer for them
-			// Note: Some devices offer a dedicated transfer queue (with only the transfer bit set) that may be faster when doing lots of copies
-			VkCommandBuffer copyCmd = getCommandBuffer(true);
-
-			// Put buffer region copies into command buffer
-			VkBufferCopy copyRegion = {};
-
-			// Vertex buffer
-			copyRegion.size = vertexBufferSize;
-			vkCmdCopyBuffer(copyCmd, stagingBuffers.vertices.buffer, vertices.buffer, 1, &copyRegion);
-			// Index buffer
-			copyRegion.size = indexBufferSize;
-			vkCmdCopyBuffer(copyCmd, stagingBuffers.indices.buffer, indices.buffer,	1, &copyRegion);
-
-			// Flushing the command buffer will also submit it to the queue and uses a fence to ensure that all commands have been executed before returning
-			flushCommandBuffer(copyCmd);
-
-			// Destroy staging buffers
-			// Note: Staging buffer must not be deleted before the copies have been submitted and executed
-			vkDestroyBuffer(device, stagingBuffers.vertices.buffer, nullptr);
-			vkFreeMemory(device, stagingBuffers.vertices.memory, nullptr);
-			vkDestroyBuffer(device, stagingBuffers.indices.buffer, nullptr);
-			vkFreeMemory(device, stagingBuffers.indices.memory, nullptr);
-		}	
-	*/
-
-
-	if (useStaging) {
-
-	}
-	else {
-		VkBufferCreateInfo vertextBufInfo = {};
-		vertextBufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		vertextBufInfo.pNext = NULL;
-		vertextBufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		vertextBufInfo.size = v.dataSize;
-		vertextBufInfo.queueFamilyIndexCount = 0;
-		vertextBufInfo.pQueueFamilyIndices = NULL;
-		vertextBufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		vertextBufInfo.flags = 0;
-
-		res = vkCreateBuffer(context.device, &vertextBufInfo, NULL, &v.buffer);
-		assert(res == VK_SUCCESS);
-
-		vkGetBufferMemoryRequirements(context.device, v.buffer, &memReqs);
-		memAlloc.allocationSize = memReqs.size;
-		pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
-		assert(pass && "No mappable coherent memory");
-
-		res = vkAllocateMemory(context.device, &memAlloc, nullptr, &v.memory);
-		assert(res == VK_SUCCESS);
-
-		v.buffer_info.range = memReqs.size;
-		v.buffer_info.offset = 0;
-
-		res = vkMapMemory(context.device, v.memory, 0, memAlloc.allocationSize, 0, (void**)&pData);
-		assert(res == VK_SUCCESS);
-		
-		memcpy(pData, (const void*)v.vBuffer, v.dataSize);
-		vkUnmapMemory(context.device, v.memory);
-		res = vkBindBufferMemory(context.device, v.buffer, v.memory, 0);
-		assert(res == VK_SUCCESS);
-
-		// Index buffer
-		VkBufferCreateInfo indexbufferInfo = {};
-
-		indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		indexbufferInfo.pNext = NULL;
-		indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-		indexbufferInfo.size = sizeof(i.indices) * i.count;
-		indexbufferInfo.queueFamilyIndexCount = 0;
-		indexbufferInfo.pQueueFamilyIndices = NULL;
-		indexbufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		indexbufferInfo.flags = 0;
-
-		// Copy index data to a buffer visible to the host
-		res = (vkCreateBuffer(context.device, &indexbufferInfo, nullptr, &i.buffer));
-		vkGetBufferMemoryRequirements(context.device, i.buffer, &memReqs);
-		memAlloc.allocationSize = memReqs.size;
-
-		pass = memory_type_from_properties(context, memReqs.memoryTypeBits,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		&memAlloc.memoryTypeIndex);
-		res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &i.memory));
-		assert(res == VK_SUCCESS);
-		res = (vkMapMemory(context.device, i.memory, 0, memReqs.size, 0, (void**)&pData));
-		assert(res == VK_SUCCESS);
-		memcpy(pData, i.indices, sizeof(indices) * i.count);
-		vkUnmapMemory(context.device, i.memory);
-		res = (vkBindBufferMemory(context.device, i.buffer, i.memory, 0));
-		assert(res == VK_SUCCESS);
-	}
-	return res;;
+	return VK_SUCCESS;;
 }
 //--------------IGNORE FROM HERE---------------------------------------------------------------------->
-
-//
-///*------------------------------------------------------------------------------------------------->*/
-//
-//void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkCommandBuffer cmd) {
-//	/* DEPENDS on cmd and queue initialized */
-//
-//	assert(cmd != VK_NULL_HANDLE);
-//	assert(graphics_queue != VK_NULL_HANDLE);
-//
-//	VkImageMemoryBarrier image_memory_barrier = {};
-//	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-//	image_memory_barrier.pNext = NULL;
-//	image_memory_barrier.srcAccessMask = 0;
-//	image_memory_barrier.dstAccessMask = 0;
-//	image_memory_barrier.oldLayout = old_image_layout;
-//	image_memory_barrier.newLayout = new_image_layout;
-//	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-//	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-//	image_memory_barrier.image = image;
-//	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
-//	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-//	image_memory_barrier.subresourceRange.levelCount = 1;
-//	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-//	image_memory_barrier.subresourceRange.layerCount = 1;
-//
-//	if (old_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-//		image_memory_barrier.srcAccessMask =
-//			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-//	}
-//
-//	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-//		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-//	}
-//
-//	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-//		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-//	}
-//
-//	if (old_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-//		image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-//	}
-//
-//	if (old_image_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
-//		image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-//	}
-//
-//	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-//		image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-//	}
-//
-//	if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-//		image_memory_barrier.dstAccessMask =
-//			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-//	}
-//
-//	if (new_image_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-//		image_memory_barrier.dstAccessMask =
-//			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-//	}
-//
-//	VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-//	VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-//
-//	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, 0, 0, NULL, 0, NULL,
-//		1, &image_memory_barrier);
-//}
-//
-//void init_glslang() {
-//	glslang::InitializeProcess();
-//
-//}
-//
-//void finalize_glslang() {
-//	glslang::FinalizeProcess();
-//
-//}
-//
-////
-//// Compile a given string containing GLSL into SPV for use by VK
-//// Return value of false means an error was encountered.
-////
-//bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char* pshader,
-//	std::vector<unsigned int>& spirv) {
-//	EShLanguage stage = FindLanguage(shader_type);
-//	glslang::TShader shader(stage);
-//	glslang::TProgram program;
-//	const char* shaderStrings[1];
-//	TBuiltInResource Resources;
-//	init_resources(Resources);
-//
-//	// Enable SPIR-V and Vulkan rules when parsing GLSL
-//	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
-//
-//	shaderStrings[0] = pshader;
-//	shader.setStrings(shaderStrings, 1);
-//
-//	if (!shader.parse(&Resources, 100, false, messages)) {
-//		puts(shader.getInfoLog());
-//		puts(shader.getInfoDebugLog());
-//		return false; // something didn't work
-//	}
-//
-//	program.addShader(&shader);
-//
-//	//
-//	// Program-level processing...
-//	//
-//
-//	if (!program.link(messages)) {
-//		puts(shader.getInfoLog());
-//		puts(shader.getInfoDebugLog());
-//		fflush(stdout);
-//		return false;
-//	}
-//
-//	glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
-//
-//	return true;
-//}
-//
-//EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
-//	switch (shader_type) {
-//	case VK_SHADER_STAGE_VERTEX_BIT:
-//		return EShLangVertex;
-//
-//	case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
-//		return EShLangTessControl;
-//
-//	case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
-//		return EShLangTessEvaluation;
-//
-//	case VK_SHADER_STAGE_GEOMETRY_BIT:
-//		return EShLangGeometry;
-//
-//	case VK_SHADER_STAGE_FRAGMENT_BIT:
-//		return EShLangFragment;
-//
-//	case VK_SHADER_STAGE_COMPUTE_BIT:
-//		return EShLangCompute;
-//
-//	default:
-//		return EShLangVertex;
-//	}
-//}
-//
-//void init_resources(TBuiltInResource& Resources) {
-//	Resources.maxLights = 32;
-//	Resources.maxClipPlanes = 6;
-//	Resources.maxTextureUnits = 32;
-//	Resources.maxTextureCoords = 32;
-//	Resources.maxVertexAttribs = 64;
-//	Resources.maxVertexUniformComponents = 4096;
-//	Resources.maxVaryingFloats = 64;
-//	Resources.maxVertexTextureImageUnits = 32;
-//	Resources.maxCombinedTextureImageUnits = 80;
-//	Resources.maxTextureImageUnits = 32;
-//	Resources.maxFragmentUniformComponents = 4096;
-//	Resources.maxDrawBuffers = 32;
-//	Resources.maxVertexUniformVectors = 128;
-//	Resources.maxVaryingVectors = 8;
-//	Resources.maxFragmentUniformVectors = 16;
-//	Resources.maxVertexOutputVectors = 16;
-//	Resources.maxFragmentInputVectors = 15;
-//	Resources.minProgramTexelOffset = -8;
-//	Resources.maxProgramTexelOffset = 7;
-//	Resources.maxClipDistances = 8;
-//	Resources.maxComputeWorkGroupCountX = 65535;
-//	Resources.maxComputeWorkGroupCountY = 65535;
-//	Resources.maxComputeWorkGroupCountZ = 65535;
-//	Resources.maxComputeWorkGroupSizeX = 1024;
-//	Resources.maxComputeWorkGroupSizeY = 1024;
-//	Resources.maxComputeWorkGroupSizeZ = 64;
-//	Resources.maxComputeUniformComponents = 1024;
-//	Resources.maxComputeTextureImageUnits = 16;
-//	Resources.maxComputeImageUniforms = 8;
-//	Resources.maxComputeAtomicCounters = 8;
-//	Resources.maxComputeAtomicCounterBuffers = 1;
-//	Resources.maxVaryingComponents = 60;
-//	Resources.maxVertexOutputComponents = 64;
-//	Resources.maxGeometryInputComponents = 64;
-//	Resources.maxGeometryOutputComponents = 128;
-//	Resources.maxFragmentInputComponents = 128;
-//	Resources.maxImageUnits = 8;
-//	Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
-//	Resources.maxCombinedShaderOutputResources = 8;
-//	Resources.maxImageSamples = 0;
-//	Resources.maxVertexImageUniforms = 0;
-//	Resources.maxTessControlImageUniforms = 0;
-//	Resources.maxTessEvaluationImageUniforms = 0;
-//	Resources.maxGeometryImageUniforms = 0;
-//	Resources.maxFragmentImageUniforms = 8;
-//	Resources.maxCombinedImageUniforms = 8;
-//	Resources.maxGeometryTextureImageUnits = 16;
-//	Resources.maxGeometryOutputVertices = 256;
-//	Resources.maxGeometryTotalOutputComponents = 1024;
-//	Resources.maxGeometryUniformComponents = 1024;
-//	Resources.maxGeometryVaryingComponents = 64;
-//	Resources.maxTessControlInputComponents = 128;
-//	Resources.maxTessControlOutputComponents = 128;
-//	Resources.maxTessControlTextureImageUnits = 16;
-//	Resources.maxTessControlUniformComponents = 1024;
-//	Resources.maxTessControlTotalOutputComponents = 4096;
-//	Resources.maxTessEvaluationInputComponents = 128;
-//	Resources.maxTessEvaluationOutputComponents = 128;
-//	Resources.maxTessEvaluationTextureImageUnits = 16;
-//	Resources.maxTessEvaluationUniformComponents = 1024;
-//	Resources.maxTessPatchComponents = 120;
-//	Resources.maxPatchVertices = 32;
-//	Resources.maxTessGenLevel = 64;
-//	Resources.maxViewports = 16;
-//	Resources.maxVertexAtomicCounters = 0;
-//	Resources.maxTessControlAtomicCounters = 0;
-//	Resources.maxTessEvaluationAtomicCounters = 0;
-//	Resources.maxGeometryAtomicCounters = 0;
-//	Resources.maxFragmentAtomicCounters = 8;
-//	Resources.maxCombinedAtomicCounters = 8;
-//	Resources.maxAtomicCounterBindings = 1;
-//	Resources.maxVertexAtomicCounterBuffers = 0;
-//	Resources.maxTessControlAtomicCounterBuffers = 0;
-//	Resources.maxTessEvaluationAtomicCounterBuffers = 0;
-//	Resources.maxGeometryAtomicCounterBuffers = 0;
-//	Resources.maxFragmentAtomicCounterBuffers = 1;
-//	Resources.maxCombinedAtomicCounterBuffers = 1;
-//	Resources.maxAtomicCounterBufferSize = 16384;
-//	Resources.maxTransformFeedbackBuffers = 4;
-//	Resources.maxTransformFeedbackInterleavedComponents = 64;
-//	Resources.maxCullDistances = 8;
-//	Resources.maxCombinedClipAndCullDistances = 8;
-//	Resources.maxSamples = 4;
-//	Resources.limits.nonInductiveForLoops = 1;
-//	Resources.limits.whileLoops = 1;
-//	Resources.limits.doWhileLoops = 1;
-//	Resources.limits.generalUniformIndexing = 1;
-//	Resources.limits.generalAttributeMatrixVectorIndexing = 1;
-//	Resources.limits.generalVaryingIndexing = 1;
-//	Resources.limits.generalSamplerIndexing = 1;
-//	Resources.limits.generalVariableIndexing = 1;
-//	Resources.limits.generalConstantMatrixVectorIndexing = 1;
-//}
 
 //TODO: Move all of this to a helper file
 bool memory_type_from_properties(struct LHContext &context, uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex) {
@@ -1242,4 +829,175 @@ std::string physicalDeviceTypeString(VkPhysicalDeviceType type){
 #undef STR
 	default: return "UNKNOWN_DEVICE_TYPE";
 	}
+}
+
+void init_glslang() {
+	glslang::InitializeProcess();
+}
+
+void finalize_glslang() {
+	glslang::FinalizeProcess();
+}
+
+//
+// Compile a given string containing GLSL into SPV for use by VK
+// Return value of false means an error was encountered.
+//
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char* pshader,
+	std::vector<unsigned int>& spirv) {
+	EShLanguage stage = FindLanguage(shader_type);
+	glslang::TShader shader(stage);
+	glslang::TProgram program;
+	const char* shaderStrings[1];
+	TBuiltInResource Resources;
+	init_resources(Resources);
+
+	// Enable SPIR-V and Vulkan rules when parsing GLSL
+	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+
+	shaderStrings[0] = pshader;
+	shader.setStrings(shaderStrings, 1);
+
+	if (!shader.parse(&Resources, 100, false, messages)) {
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
+		return false; // something didn't work
+	}
+
+	program.addShader(&shader);
+
+	//
+	// Program-level processing...
+	//
+
+	if (!program.link(messages)) {
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
+		fflush(stdout);
+		return false;
+	}
+
+	glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
+
+	return true;
+}
+
+EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
+	switch (shader_type) {
+	case VK_SHADER_STAGE_VERTEX_BIT:
+		return EShLangVertex;
+
+	case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+		return EShLangTessControl;
+
+	case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+		return EShLangTessEvaluation;
+
+	case VK_SHADER_STAGE_GEOMETRY_BIT:
+		return EShLangGeometry;
+
+	case VK_SHADER_STAGE_FRAGMENT_BIT:
+		return EShLangFragment;
+
+	case VK_SHADER_STAGE_COMPUTE_BIT:
+		return EShLangCompute;
+
+	default:
+		return EShLangVertex;
+	}
+}
+
+void init_resources(TBuiltInResource& Resources) {
+	Resources.maxLights = 32;
+	Resources.maxClipPlanes = 6;
+	Resources.maxTextureUnits = 32;
+	Resources.maxTextureCoords = 32;
+	Resources.maxVertexAttribs = 64;
+	Resources.maxVertexUniformComponents = 4096;
+	Resources.maxVaryingFloats = 64;
+	Resources.maxVertexTextureImageUnits = 32;
+	Resources.maxCombinedTextureImageUnits = 80;
+	Resources.maxTextureImageUnits = 32;
+	Resources.maxFragmentUniformComponents = 4096;
+	Resources.maxDrawBuffers = 32;
+	Resources.maxVertexUniformVectors = 128;
+	Resources.maxVaryingVectors = 8;
+	Resources.maxFragmentUniformVectors = 16;
+	Resources.maxVertexOutputVectors = 16;
+	Resources.maxFragmentInputVectors = 15;
+	Resources.minProgramTexelOffset = -8;
+	Resources.maxProgramTexelOffset = 7;
+	Resources.maxClipDistances = 8;
+	Resources.maxComputeWorkGroupCountX = 65535;
+	Resources.maxComputeWorkGroupCountY = 65535;
+	Resources.maxComputeWorkGroupCountZ = 65535;
+	Resources.maxComputeWorkGroupSizeX = 1024;
+	Resources.maxComputeWorkGroupSizeY = 1024;
+	Resources.maxComputeWorkGroupSizeZ = 64;
+	Resources.maxComputeUniformComponents = 1024;
+	Resources.maxComputeTextureImageUnits = 16;
+	Resources.maxComputeImageUniforms = 8;
+	Resources.maxComputeAtomicCounters = 8;
+	Resources.maxComputeAtomicCounterBuffers = 1;
+	Resources.maxVaryingComponents = 60;
+	Resources.maxVertexOutputComponents = 64;
+	Resources.maxGeometryInputComponents = 64;
+	Resources.maxGeometryOutputComponents = 128;
+	Resources.maxFragmentInputComponents = 128;
+	Resources.maxImageUnits = 8;
+	Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
+	Resources.maxCombinedShaderOutputResources = 8;
+	Resources.maxImageSamples = 0;
+	Resources.maxVertexImageUniforms = 0;
+	Resources.maxTessControlImageUniforms = 0;
+	Resources.maxTessEvaluationImageUniforms = 0;
+	Resources.maxGeometryImageUniforms = 0;
+	Resources.maxFragmentImageUniforms = 8;
+	Resources.maxCombinedImageUniforms = 8;
+	Resources.maxGeometryTextureImageUnits = 16;
+	Resources.maxGeometryOutputVertices = 256;
+	Resources.maxGeometryTotalOutputComponents = 1024;
+	Resources.maxGeometryUniformComponents = 1024;
+	Resources.maxGeometryVaryingComponents = 64;
+	Resources.maxTessControlInputComponents = 128;
+	Resources.maxTessControlOutputComponents = 128;
+	Resources.maxTessControlTextureImageUnits = 16;
+	Resources.maxTessControlUniformComponents = 1024;
+	Resources.maxTessControlTotalOutputComponents = 4096;
+	Resources.maxTessEvaluationInputComponents = 128;
+	Resources.maxTessEvaluationOutputComponents = 128;
+	Resources.maxTessEvaluationTextureImageUnits = 16;
+	Resources.maxTessEvaluationUniformComponents = 1024;
+	Resources.maxTessPatchComponents = 120;
+	Resources.maxPatchVertices = 32;
+	Resources.maxTessGenLevel = 64;
+	Resources.maxViewports = 16;
+	Resources.maxVertexAtomicCounters = 0;
+	Resources.maxTessControlAtomicCounters = 0;
+	Resources.maxTessEvaluationAtomicCounters = 0;
+	Resources.maxGeometryAtomicCounters = 0;
+	Resources.maxFragmentAtomicCounters = 8;
+	Resources.maxCombinedAtomicCounters = 8;
+	Resources.maxAtomicCounterBindings = 1;
+	Resources.maxVertexAtomicCounterBuffers = 0;
+	Resources.maxTessControlAtomicCounterBuffers = 0;
+	Resources.maxTessEvaluationAtomicCounterBuffers = 0;
+	Resources.maxGeometryAtomicCounterBuffers = 0;
+	Resources.maxFragmentAtomicCounterBuffers = 1;
+	Resources.maxCombinedAtomicCounterBuffers = 1;
+	Resources.maxAtomicCounterBufferSize = 16384;
+	Resources.maxTransformFeedbackBuffers = 4;
+	Resources.maxTransformFeedbackInterleavedComponents = 64;
+	Resources.maxCullDistances = 8;
+	Resources.maxCombinedClipAndCullDistances = 8;
+	Resources.maxSamples = 4;
+	Resources.limits.nonInductiveForLoops = 1;
+	Resources.limits.whileLoops = 1;
+	Resources.limits.doWhileLoops = 1;
+	Resources.limits.generalUniformIndexing = 1;
+	Resources.limits.generalAttributeMatrixVectorIndexing = 1;
+	Resources.limits.generalVaryingIndexing = 1;
+	Resources.limits.generalSamplerIndexing = 1;
+	Resources.limits.generalVariableIndexing = 1;
+	Resources.limits.generalConstantMatrixVectorIndexing = 1;
 }
