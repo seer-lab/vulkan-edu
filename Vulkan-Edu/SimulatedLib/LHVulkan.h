@@ -17,6 +17,7 @@
 #include <vulkan/vulkan.h>
 #include <SPIRV/GlslangToSpv.h>
 #include <iostream>
+#include <fstream>
 #include <limits>
 
 //#define GLFW_INCLUDE_VULKAN
@@ -169,16 +170,19 @@ VkResult createRenderPass(struct LHContext& context, bool includeDepth = true);
 void createPipeLineCache(struct LHContext& context);
 VkResult createFrameBuffer(struct LHContext& context, bool includeDepth = true);
 void createDeviceQueue(struct LHContext& context);
+void setupRenderPass(struct LHContext& context, bool useStagingBuffers = false);
 //----------------------------> Optional Functions
 
 VkResult mapVerticiesToGPU(struct LHContext& context, struct vertices& v, struct indices& i, bool useStaging);
-
-
+void createClearColor(struct LHContext& context, VkClearValue* clear_values);
+void createRenderPassCreateInfo(struct LHContext& context, VkRenderPassBeginInfo& rp_begin);
+void createAttachmentDescription(struct LHContext& context, VkAttachmentDescription* attachments);
 //----------------------------> Helper Function code
 std::string physicalDeviceTypeString(VkPhysicalDeviceType type);
 bool memory_type_from_properties(struct LHContext& context, uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);
 void init_glslang();
 void finalize_glslang();
+VkShaderModule loadSPIRVShader(struct LHContext& context, std::string filename);
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char* pshader,
 	std::vector<unsigned int>& spirv);
 EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type);

@@ -103,17 +103,10 @@ void buildCommandBuffers(struct LHContext& context, struct appState& state){
 	// Set clear values for all framebuffer attachments with loadOp set to clear
 	// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
 	VkClearValue clearValues[2];
-	clearValues[0].color = { { 0.0f, 0.0f, 0.2f, 1.0f } };
-	clearValues[1].depthStencil = { 1.0f, 0 };
+	createClearColor(context, clearValues);
 
 	VkRenderPassBeginInfo renderPassBeginInfo = {};
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.pNext = nullptr;
-	renderPassBeginInfo.renderPass = context.render_pass;
-	renderPassBeginInfo.renderArea.offset.x = 0;
-	renderPassBeginInfo.renderArea.offset.y = 0;
-	renderPassBeginInfo.renderArea.extent.width = context.width;
-	renderPassBeginInfo.renderArea.extent.height = context.height;
+	createRenderPassCreateInfo(context, renderPassBeginInfo);
 	renderPassBeginInfo.clearValueCount = 2;
 	renderPassBeginInfo.pClearValues = clearValues;
 
@@ -286,154 +279,6 @@ void setupDescriptorSet(struct LHContext& context, struct appState& state){
 	writeDescriptorSet.dstBinding = 0;
 
 	vkUpdateDescriptorSets(context.device, 1, &writeDescriptorSet, 0, nullptr);
-}
-
-void setupFrameBuffer(struct LHContext& context, struct appState& state, bool useStagingBuffers){
-	VkResult U_ASSERT_ONLY res;
-	// Create a frame buffer for every image in the swapchain
-	context.frameBuffers.resize(context.swapchainImageCount);
-	for (size_t i = 0; i < context.frameBuffers.size(); i++){
-		std::array<VkImageView, 2> attachments;
-		attachments[0] = context.buffers[i].view;									// Color attachment is the view of the swapchain image			
-		attachments[1] = context.depth.view;											// Depth/Stencil attachment is the same for all frame buffers			
-
-		VkFramebufferCreateInfo frameBufferCreateInfo = {};
-		frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		// All frame buffers use the same renderpass setup
-		frameBufferCreateInfo.renderPass = context.render_pass;
-		frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		frameBufferCreateInfo.pAttachments = attachments.data();
-		frameBufferCreateInfo.width = context.width;
-		frameBufferCreateInfo.height = context.height;
-		frameBufferCreateInfo.layers = 1;
-		// Create the framebuffer
-		res =(vkCreateFramebuffer(context.device, &frameBufferCreateInfo, nullptr, &context.frameBuffers[i]));
-	}
-}
-
-void setupRenderPass(struct LHContext& context, struct appState& state, bool useStagingBuffers){
-	VkResult U_ASSERT_ONLY res;
-	// This example will use a single render pass with one subpass
-
-	// Descriptors for the attachments used by this renderpass
-	std::array<VkAttachmentDescription, 2> attachments = {};
-
-	// Color attachment
-	attachments[0].format = context.format;									// Use the color format selected by the swapchain
-	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;									// We don't use multi sampling in this example
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;							// Clear this attachment at the start of the render pass
-	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;							// Keep it's contents after the render pass is finished (for displaying it)
-	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;					// We don't use stencil, so don't care for load
-	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;				// Same for store
-	attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;						// Layout at render pass start. Initial doesn't matter, so we use undefined
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;					// Layout to which the attachment is transitioned when the render pass is finished
-																					// As we want to present the color buffer to the swapchain, we transition to PRESENT_KHR	
-	// Depth attachment
-	attachments[1].format = context.depth.format;											// A proper depth format is selected in the example base
-	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;							// Clear depth at start of first subpass
-	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;						// We don't need depth after render pass has finished (DONT_CARE may result in better performance)
-	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;					// No stencil
-	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;				// No Stencil
-	attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;						// Layout at render pass start. Initial doesn't matter, so we use undefined
-	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;	// Transition to depth/stencil attachment
-
-	// Setup attachment references
-	VkAttachmentReference colorReference = {};
-	colorReference.attachment = 0;													// Attachment 0 is color
-	colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;				// Attachment layout used as color during the subpass
-
-	VkAttachmentReference depthReference = {};
-	depthReference.attachment = 1;													// Attachment 1 is color
-	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;		// Attachment used as depth/stemcil used during the subpass
-
-	// Setup a single subpass reference
-	VkSubpassDescription subpassDescription = {};
-	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpassDescription.colorAttachmentCount = 1;									// Subpass uses one color attachment
-	subpassDescription.pColorAttachments = &colorReference;							// Reference to the color attachment in slot 0
-	subpassDescription.pDepthStencilAttachment = &depthReference;					// Reference to the depth attachment in slot 1
-	subpassDescription.inputAttachmentCount = 0;									// Input attachments can be used to sample from contents of a previous subpass
-	subpassDescription.pInputAttachments = nullptr;									// (Input attachments not used by this example)
-	subpassDescription.preserveAttachmentCount = 0;									// Preserved attachments can be used to loop (and preserve) attachments through subpasses
-	subpassDescription.pPreserveAttachments = nullptr;								// (Preserve attachments not used by this example)
-	subpassDescription.pResolveAttachments = nullptr;								// Resolve attachments are resolved at the end of a sub pass and can be used for e.g. multi sampling
-
-	// Setup subpass dependencies
-	// These will add the implicit ttachment layout transitionss specified by the attachment descriptions
-	// The actual usage layout is preserved through the layout specified in the attachment reference		
-	// Each subpass dependency will introduce a memory and execution dependency between the source and dest subpass described by
-	// srcStageMask, dstStageMask, srcAccessMask, dstAccessMask (and dependencyFlags is set)
-	// Note: VK_SUBPASS_EXTERNAL is a special constant that refers to all commands executed outside of the actual renderpass)
-	std::array<VkSubpassDependency, 2> dependencies;
-
-	// First dependency at the start of the renderpass
-	// Does the transition from final to initial layout 
-	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;								// Producer of the dependency 
-	dependencies[0].dstSubpass = 0;													// Consumer is our single subpass that will wait for the execution depdendency
-	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	// Second dependency at the end the renderpass
-	// Does the transition from the initial to the final layout
-	dependencies[1].srcSubpass = 0;													// Producer of the dependency is our single subpass
-	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;								// Consumer are all commands outside of the renderpass
-	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	// Create the actual renderpass
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());		// Number of attachments used by this render pass
-	renderPassInfo.pAttachments = attachments.data();								// Descriptions of the attachments used by the render pass
-	renderPassInfo.subpassCount = 1;												// We only use one subpass in this example
-	renderPassInfo.pSubpasses = &subpassDescription;								// Description of that subpass
-	renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());	// Number of subpass dependencies
-	renderPassInfo.pDependencies = dependencies.data();								// Subpass dependencies used by the render pass
-
-	res =(vkCreateRenderPass(context.device, &renderPassInfo, nullptr, &context.render_pass));
-}
-
-VkShaderModule loadSPIRVShader(struct LHContext& context,std::string filename){
-	VkResult U_ASSERT_ONLY res;
-	size_t shaderSize;
-	char* shaderCode = NULL;
-
-	std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
-
-	if (is.is_open()){
-		shaderSize = is.tellg();
-		is.seekg(0, std::ios::beg);
-		// Copy file contents into a buffer
-		shaderCode = new char[shaderSize];
-		is.read(shaderCode, shaderSize);
-		is.close();
-		assert(shaderSize > 0);
-	}
-	if (shaderCode){
-		// Create a new shader module that will be used for pipeline creation
-		VkShaderModuleCreateInfo moduleCreateInfo{};
-		moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		moduleCreateInfo.codeSize = shaderSize;
-		moduleCreateInfo.pCode = (uint32_t*)shaderCode;
-
-		VkShaderModule shaderModule;
-		res =(vkCreateShaderModule(context.device, &moduleCreateInfo, NULL, &shaderModule));
-
-		delete[] shaderCode;
-
-		return shaderModule;
-	}
-	else{
-		std::cerr << "Error: Could not open shader file \"" << filename << "\"" << std::endl;
-		return VK_NULL_HANDLE;
-	}
 }
 
 void preparePipelines(struct LHContext& context, struct appState& state){
