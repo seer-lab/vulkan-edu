@@ -121,19 +121,11 @@ void buildCommandBuffers(struct LHContext& context, struct appState& state){
 
 		// Update dynamic viewport state
 		VkViewport viewport = {};
-		viewport.height = (float)context.height;
-		viewport.width = (float)context.width;
-		viewport.minDepth = (float)0.0f;
-		viewport.maxDepth = (float)1.0f;
-		vkCmdSetViewport(context.cmdBuffer[i], 0, 1, &viewport);
+		createViewports(context, context.cmdBuffer[i], viewport);
 
 		// Update dynamic scissor state
 		VkRect2D scissor = {};
-		scissor.extent.width = context.width;
-		scissor.extent.height = context.height;
-		scissor.offset.x = 0;
-		scissor.offset.y = 0;
-		vkCmdSetScissor(context.cmdBuffer[i], 0, 1, &scissor);
+		createScisscor(context, context.cmdBuffer[i], scissor);
 
 		vkCmdBindDescriptorSets(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelineLayout, 0, 1, &state.descriptorSet, 0, nullptr);
 

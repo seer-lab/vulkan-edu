@@ -171,6 +171,9 @@ void createPipeLineCache(struct LHContext& context);
 VkResult createFrameBuffer(struct LHContext& context, bool includeDepth = true);
 void createDeviceQueue(struct LHContext& context);
 void setupRenderPass(struct LHContext& context, bool useStagingBuffers = false);
+void cleanUpResources(struct LHContext& context);
+void createScisscor(struct LHContext& context, VkCommandBuffer& cmd, VkRect2D& sc);
+void createViewports(struct LHContext& context, VkCommandBuffer& cmd, VkViewport& vp);
 //----------------------------> Optional Functions
 
 VkResult mapVerticiesToGPU(struct LHContext& context, struct vertices& v, struct indices& i, bool useStaging);

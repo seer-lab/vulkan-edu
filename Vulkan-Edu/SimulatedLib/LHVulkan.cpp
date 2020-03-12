@@ -924,6 +924,62 @@ void setupRenderPass(struct LHContext& context, bool useStagingBuffers) {
 	res = (vkCreateRenderPass(context.device, &renderPassInfo, nullptr, &context.render_pass));
 }
 
+void createViewports(struct LHContext& context, VkCommandBuffer& cmd, VkViewport& vp) {
+	vp.height = (float)context.height;
+	vp.width = (float)context.width;
+	vp.minDepth = (float)0.0f;
+	vp.maxDepth = (float)1.0f;
+	vp.x = 0;
+	vp.y = 0;
+	vkCmdSetViewport(cmd, 0, 1, &vp);
+}
+void createScisscor(struct LHContext& context, VkCommandBuffer& cmd, VkRect2D& sc) {
+	sc.extent.width = context.width;
+	sc.extent.height = context.height;
+	sc.offset.x = 0;
+	sc.offset.y = 0;
+	vkCmdSetScissor(cmd, 0, 1, &sc);
+}
+
+
+void cleanUpResources(struct LHContext& context) {
+
+	//Cleanup all the image view
+	if (context.swapChain != VK_NULL_HANDLE) {
+		for (uint32_t i = 0; i < context.swapchainImageCount; i++) {
+			vkDestroyImageView(context.device, context.buffers[i].view, NULL);
+		}
+	}
+
+	//clean up swapchain & surface
+	if (context.surface != VK_NULL_HANDLE) {
+		vkDestroySwapchainKHR(context.device, context.swapChain, NULL);
+		vkDestroySurfaceKHR(context.instance, context.surface, NULL);
+	}
+
+	if (context.descriptorPool != VK_NULL_HANDLE) {
+		for (uint32_t i = 0; i < context.frameBuffers.size(); i++) {
+			vkDestroyFramebuffer(context.device, context.frameBuffers[i], NULL);
+		}
+	}
+
+	vkDestroyImageView(context.device, context.depth.view, nullptr);
+	vkDestroyImage(context.device, context.depth.image, nullptr);
+	vkFreeMemory(context.device, context.depth.mem, nullptr);
+
+	vkDestroyPipelineCache(context.device, context.pipelineCache, nullptr);
+
+	vkDestroyCommandPool(context.device, context.cmd_pool, nullptr);
+
+	vkDestroySemaphore(context.device, context.semaphores.presentComplete, nullptr);
+	vkDestroySemaphore(context.device, context.semaphores.renderComplete, nullptr);
+	for (auto& fence : context.waitFences) {
+		vkDestroyFence(context.device, fence, nullptr);
+	}
+
+	vkDestroyInstance(context.instance, nullptr);
+}
+
 
 std::string physicalDeviceTypeString(VkPhysicalDeviceType type){
 	switch (type){
