@@ -176,10 +176,15 @@ void createScisscor(struct LHContext& context, VkCommandBuffer& cmd, VkRect2D& s
 void createViewports(struct LHContext& context, VkCommandBuffer& cmd, VkViewport& vp);
 //----------------------------> Optional Functions
 
-VkResult mapVerticiesToGPU(struct LHContext& context, struct vertices& v, struct indices& i, bool useStaging);
+VkResult mapVerticiesToGPU(struct LHContext& context, const void* vertexInput, uint32_t dataSize,
+	VkBuffer& vertexBuffer, VkDeviceMemory& memory);
+VkResult mapIndiciesToGPU(struct LHContext& context, const void* indiciesInput, uint32_t dataSize,
+	VkBuffer& indexBuffer, VkDeviceMemory& memory);
 void createClearColor(struct LHContext& context, VkClearValue* clear_values);
 void createRenderPassCreateInfo(struct LHContext& context, VkRenderPassBeginInfo& rp_begin);
 void createAttachmentDescription(struct LHContext& context, VkAttachmentDescription* attachments);
+
+void createShaderStage(struct LHContext& context, std::string filename, VkShaderStageFlagBits flag, VkPipelineShaderStageCreateInfo& shaderStage);
 //----------------------------> Helper Function code
 std::string physicalDeviceTypeString(VkPhysicalDeviceType type);
 bool memory_type_from_properties(struct LHContext& context, uint32_t typeBits, VkFlags requirements_mask, uint32_t* typeIndex);

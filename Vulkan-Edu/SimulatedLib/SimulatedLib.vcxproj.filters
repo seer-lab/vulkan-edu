@@ -144,10 +144,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="cube.frag">
+    <None Include="..\data\shaders\triangle\triangle.frag">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="cube.vert">
+    <None Include="..\data\shaders\triangle\triangle.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

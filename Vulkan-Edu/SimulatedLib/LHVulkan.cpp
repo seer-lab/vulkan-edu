@@ -317,7 +317,6 @@ VkResult createSwapChainExtention(struct LHContext &context) {
 	return res;
 }
 
-
 VkResult createDevice(struct LHContext &context) {
 	VkResult res;
 	VkDeviceQueueCreateInfo queue_info = {};
@@ -545,7 +544,6 @@ VkResult createSwapChain(struct LHContext &context) {
 
 	return res;
 }
-
 
 VkResult createCommandBuffer(struct LHContext &context) {
 	/* DEPENDS on init_swapchain_extension() and init_command_pool() */
@@ -785,19 +783,128 @@ VkResult createFrameBuffer(struct LHContext &context,bool includeDepth) {
 	return res;
 }
 
-VkResult mapVerticiesToGPU(struct LHContext& context,struct vertices &v,struct indices &i, bool useStaging) {
+VkResult mapVerticiesToGPU(struct LHContext& context,const void* vertexInput, uint32_t dataSize,
+							VkBuffer& vertexBuffer, VkDeviceMemory &memory) {
 	
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
-
-	uint8_t* pData;
 
 	VkMemoryAllocateInfo memAlloc = {};
 	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	VkMemoryRequirements memReqs;
 	void *data;
 
-	return VK_SUCCESS;;
+	// Vertex buffer
+	VkBufferCreateInfo vertexBufferInfo = {};
+	vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	vertexBufferInfo.size = dataSize;
+	vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+	// Copy vertex data to a buffer visible to the host
+	res = (vkCreateBuffer(context.device, &vertexBufferInfo, nullptr, &vertexBuffer));
+	assert(res == VK_SUCCESS);
+	vkGetBufferMemoryRequirements(context.device, vertexBuffer, &memReqs);
+	memAlloc.allocationSize = memReqs.size;
+
+	pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
+	assert(pass && "No mappable coherent memory");
+
+	res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &memory));
+	assert(res == VK_SUCCESS);
+	res = (vkMapMemory(context.device, memory, 0, memAlloc.allocationSize, 0, &data));
+	assert(res == VK_SUCCESS);
+	memcpy(data, vertexInput, dataSize);
+	vkUnmapMemory(context.device,memory);
+	res = (vkBindBufferMemory(context.device, vertexBuffer, memory, 0));
+	assert(res == VK_SUCCESS);
+
+	return res;;
+}
+
+VkResult mapIndiciesToGPU(struct LHContext& context, const void* indiciesInput, uint32_t dataSize,
+	VkBuffer& indexBuffer, VkDeviceMemory& memory) {
+
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+
+	VkMemoryAllocateInfo memAlloc = {};
+	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	VkMemoryRequirements memReqs;
+	void* data;
+
+	// Index buffer
+	VkBufferCreateInfo indexbufferInfo = {};
+	indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	indexbufferInfo.size = dataSize;
+	indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+	// Copy index data to a buffer visible to the host
+	res = (vkCreateBuffer(context.device, &indexbufferInfo, nullptr, &indexBuffer));
+	assert(res == VK_SUCCESS);
+	vkGetBufferMemoryRequirements(context.device, indexBuffer, &memReqs);
+	memAlloc.allocationSize = memReqs.size;
+	pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
+	assert(pass && "No mappable coherent memory");
+	res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &memory));
+	assert(res == VK_SUCCESS);
+	res = (vkMapMemory(context.device, memory, 0, dataSize, 0, &data));
+	assert(res == VK_SUCCESS);
+	memcpy(data, indiciesInput, dataSize);
+	vkUnmapMemory(context.device, memory);
+	res = (vkBindBufferMemory(context.device, indexBuffer, memory, 0));
+	assert(res == VK_SUCCESS);
+	return res;
+}
+
+
+void createShaderStage(struct LHContext &context, std::string filename, VkShaderStageFlagBits flag, VkPipelineShaderStageCreateInfo &shaderStage) {
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY retVal;
+	std::string sCode;
+
+	std::ifstream is;
+	is.open(filename);
+
+
+	if (is) {
+		std::string entry;
+		while (!is.eof()) { //counting the number of entries
+			std::getline(is, entry);
+			sCode += entry + "\n";
+		}
+		is.close();
+		assert(sCode.size() > 0);
+	}
+
+	if (!sCode.empty()) {
+		init_glslang();
+		std::vector<unsigned int> vtx_spv;
+		VkShaderModuleCreateInfo moduleCreateInfo;
+
+		shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStage.pNext = NULL;
+		shaderStage.pSpecializationInfo = NULL;
+		shaderStage.flags = 0;
+		shaderStage.stage = flag;
+		shaderStage.pName = "main";
+
+		retVal = GLSLtoSPV(flag, sCode.c_str(), vtx_spv);
+		assert(retVal);
+
+		moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		moduleCreateInfo.pNext = NULL;
+		moduleCreateInfo.flags = 0;
+		moduleCreateInfo.codeSize = vtx_spv.size() * sizeof(unsigned int);
+		moduleCreateInfo.pCode = vtx_spv.data();
+		res = vkCreateShaderModule(context.device, &moduleCreateInfo, NULL, &shaderStage.module);
+		assert(res == VK_SUCCESS);
+
+	}
+	else {
+		std::cerr << "Error: Could not open shader file \"" << filename << "\"" << std::endl;
+	}
+
+	finalize_glslang();
 }
 //--------------IGNORE FROM HERE---------------------------------------------------------------------->
 
@@ -1021,6 +1128,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char* pshader,
 	shader.setStrings(shaderStrings, 1);
 
 	if (!shader.parse(&Resources, 100, false, messages)) {
+		std::cout << pshader << std::endl;
 		puts(shader.getInfoLog());
 		puts(shader.getInfoDebugLog());
 		return false; // something didn't work

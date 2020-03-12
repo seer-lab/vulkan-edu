@@ -5,23 +5,16 @@
 #include <fstream>
 
 #include "LHVulkan.h"
+#include "cube_data.h"
 
 #define VK_USE_PLATFORM_WIN32_KHR
 
 #define WIDTH 512
 #define HEIGHT 512
-struct Vertex {
-	float position[3];
-	float color[3];
-};
+
 
 //Custom States depending on what is needed
 struct appState{
-	struct Vertex {
-		float position[3];
-		float color[3];
-	}vertex;
-
 	struct vertices v;
 	// Index buffer
 	struct indices i;
@@ -52,6 +45,8 @@ struct appState{
 	VkSemaphore presentCompleteSemaphore;
 	VkSemaphore renderCompleteSemaphore;
 	std::vector<VkFence> waitFences;
+
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
 };
 
 glm::vec3 rotation = glm::vec3();
@@ -64,7 +59,6 @@ float eyex, eyey, eyez;	// current user position
 double theta, phi;		// user's position  on a sphere centered on the object
 double r;
 
-//TODO: Take care of Deinit
 
 void prepareSynchronizationPrimitives(struct LHContext& context, struct appState& state){
 	VkResult U_ASSERT_ONLY res;
@@ -134,9 +128,9 @@ void buildCommandBuffers(struct LHContext& context, struct appState& state){
 		VkDeviceSize offsets[1] = { 0 };
 		vkCmdBindVertexBuffers(context.cmdBuffer[i], 0, 1, &state.v.buffer, offsets);
 
-		vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i.buffer, 0, VK_INDEX_TYPE_UINT32);
+		//vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdDrawIndexed(context.cmdBuffer[i], state.i.count, 1, 0, 0, 1);
+		vkCmdDraw(context.cmdBuffer[i], 12 * 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(context.cmdBuffer[i]);
 
@@ -363,7 +357,7 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 	// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
 	VkVertexInputBindingDescription vertexInputBinding = {};
 	vertexInputBinding.binding = 0;
-	vertexInputBinding.stride = sizeof(Vertex);
+	vertexInputBinding.stride = sizeof(g_vb_solid_face_colors_Data[0]);
 	vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 	// Inpute attribute bindings describe shader attribute locations and memory layouts
@@ -376,13 +370,13 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 	vertexInputAttributs[0].location = 0;
 	// Position attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
 	vertexInputAttributs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	vertexInputAttributs[0].offset = offsetof(Vertex, position);
+	vertexInputAttributs[0].offset = 0;
 	// Attribute location 1: Color
 	vertexInputAttributs[1].binding = 0;
 	vertexInputAttributs[1].location = 1;
 	// Color attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
 	vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	vertexInputAttributs[1].offset = offsetof(Vertex, color);
+	vertexInputAttributs[1].offset = 16;
 
 	// Vertex input state used for pipeline creation
 	VkPipelineVertexInputStateCreateInfo vertexInputState = {};
@@ -392,32 +386,9 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 	vertexInputState.vertexAttributeDescriptionCount = 2;
 	vertexInputState.pVertexAttributeDescriptions = vertexInputAttributs.data();
 
-	// Shaders
-	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
-
-	// Vertex shader
-	shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	// Set pipeline stage for this shader
-	shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	// Load binary SPIR-V shader
-	shaderStages[0].module = loadSPIRVShader(context, "./../data/shaders/triangle/triangle.vert.spv");
-	// Main entry point for the shader
-	shaderStages[0].pName = "main";
-	assert(shaderStages[0].module != VK_NULL_HANDLE);
-
-	// Fragment shader
-	shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	// Set pipeline stage for this shader
-	shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	// Load binary SPIR-V shader
-	shaderStages[1].module = loadSPIRVShader(context, "./../data/shaders/triangle/triangle.frag.spv");
-	// Main entry point for the shader
-	shaderStages[1].pName = "main";
-	assert(shaderStages[1].module != VK_NULL_HANDLE);
-
 	// Set pipeline shader stage info
-	pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
-	pipelineCreateInfo.pStages = shaderStages.data();
+	pipelineCreateInfo.stageCount = static_cast<uint32_t>(state.shaderStages.size());
+	pipelineCreateInfo.pStages = state.shaderStages.data();
 
 	// Assign the pipeline states to the pipeline creation info structure
 	pipelineCreateInfo.pVertexInputState = &vertexInputState;
@@ -434,8 +405,8 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 	res =(vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipeline));
 
 	// Shader modules are no longer needed once the graphics pipeline has been created
-	vkDestroyShaderModule(context.device, shaderStages[0].module, nullptr);
-	vkDestroyShaderModule(context.device, shaderStages[1].module, nullptr);
+	vkDestroyShaderModule(context.device, state.shaderStages[0].module, nullptr);
+	vkDestroyShaderModule(context.device, state.shaderStages[1].module, nullptr);
 }
 
 void updateUniformBuffers(struct LHContext& context, struct appState& state){
@@ -505,78 +476,35 @@ void prepareVertices(struct LHContext& context, struct appState& state,bool useS
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
 
-	// Setup vertices
-	std::vector<Vertex> vertexBuffer ={
-		{ {  1.0f,  1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
-		{ { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-		{ {  0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
-	};
-	uint32_t vertexBufferSize = static_cast<uint32_t>(vertexBuffer.size()) * sizeof(Vertex);
-
-	// Setup indices
-	std::vector<uint32_t> indexBuffer = { 0, 1, 2 };
-	state.i.count = static_cast<uint32_t>(indexBuffer.size());
-	uint32_t indexBufferSize = state.i.count * sizeof(uint32_t);
-
 	VkMemoryAllocateInfo memAlloc = {};
 	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	VkMemoryRequirements memReqs;
-
 	void* data;
 
-	if (useStagingBuffers){
-		//TODO Make Staging code
-	}
-	else{
-		// Don't use staging
-		// Create host-visible buffers only and use these for rendering. This is not advised and will usually result in lower rendering performance
+	mapVerticiesToGPU(context, g_vb_solid_face_colors_Data, sizeof(g_vb_solid_face_colors_Data),state.v.buffer, state.v.memory);
 
-		// Vertex buffer
-		VkBufferCreateInfo vertexBufferInfo = {};
-		vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		vertexBufferInfo.size = vertexBufferSize;
-		vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-		
-		// Copy vertex data to a buffer visible to the host
-		res = (vkCreateBuffer(context.device, &vertexBufferInfo, nullptr, &state.v.buffer));
-		assert(res == VK_SUCCESS);
-		vkGetBufferMemoryRequirements(context.device, state.v.buffer, &memReqs);
-		memAlloc.allocationSize = memReqs.size;
+	//// Index buffer
+	//VkBufferCreateInfo indexbufferInfo = {};
+	//indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	//indexbufferInfo.size = indexBufferSize;
+	//indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-		pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
-		assert(pass && "No mappable coherent memory");		
-		res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &state.v.memory));
-		assert(res == VK_SUCCESS);
-		res = (vkMapMemory(context.device, state.v.memory, 0, memAlloc.allocationSize, 0, &data));
-		assert(res == VK_SUCCESS);
-		memcpy(data, vertexBuffer.data(), vertexBufferSize);
-		vkUnmapMemory(context.device, state.v.memory);
-		res = (vkBindBufferMemory(context.device, state.v.buffer, state.v.memory, 0));
-		assert(res == VK_SUCCESS);
-
-		// Index buffer
-		VkBufferCreateInfo indexbufferInfo = {};
-		indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		indexbufferInfo.size = indexBufferSize;
-		indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
-		// Copy index data to a buffer visible to the host
-		res = (vkCreateBuffer(context.device, &indexbufferInfo, nullptr, &state.i.buffer));
-		assert(res == VK_SUCCESS);
-		vkGetBufferMemoryRequirements(context.device, state.i.buffer, &memReqs);
-		memAlloc.allocationSize = memReqs.size;
-		pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
-		assert(pass && "No mappable coherent memory");
-		res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &state.i.memory));
-		assert(res == VK_SUCCESS);
-		res = (vkMapMemory(context.device, state.i.memory, 0, indexBufferSize, 0, &data));
-		assert(res == VK_SUCCESS);
-		memcpy(data, indexBuffer.data(), indexBufferSize);
-		vkUnmapMemory(context.device, state.i.memory);
-		res = (vkBindBufferMemory(context.device, state.i.buffer, state.i.memory, 0));
-		assert(res == VK_SUCCESS);
-	}
+	//// Copy index data to a buffer visible to the host
+	//res = (vkCreateBuffer(context.device, &indexbufferInfo, nullptr, &state.i.buffer));
+	//assert(res == VK_SUCCESS);
+	//vkGetBufferMemoryRequirements(context.device, state.i.buffer, &memReqs);
+	//memAlloc.allocationSize = memReqs.size;
+	//pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
+	//assert(pass && "No mappable coherent memory");
+	//res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &state.i.memory));
+	//assert(res == VK_SUCCESS);
+	//res = (vkMapMemory(context.device, state.i.memory, 0, indexBufferSize, 0, &data));
+	//assert(res == VK_SUCCESS);
+	//memcpy(data, indexBuffer.data(), indexBufferSize);
+	//vkUnmapMemory(context.device, state.i.memory);
+	//res = (vkBindBufferMemory(context.device, state.i.buffer, state.i.memory, 0));
+	//assert(res == VK_SUCCESS);
 }
 
 void renderLoop(struct LHContext &context, struct appState& state){
@@ -623,9 +551,21 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 
 }
 
+void prepareShaders(struct LHContext &context, struct appState& state) {
+	// Shaders
+
+	// Vertex shader
+	createShaderStage(context, "./../data/shaders/triangle/triangle.vert", VK_SHADER_STAGE_VERTEX_BIT, state.shaderStages[0]);
+	assert(state.shaderStages[0].module != VK_NULL_HANDLE);
+
+	// Fragment shader
+	createShaderStage(context, "./../data/shaders/triangle/triangle.frag", VK_SHADER_STAGE_FRAGMENT_BIT, state.shaderStages[1]);
+	assert(state.shaderStages[1].module != VK_NULL_HANDLE);
+}
+
 int main() {
 	eyex = 0.0;
-	eyez = 0.0;
+	eyez = 2.0;
 	eyey = 7.0;
 
 	theta = 1.5;
@@ -656,6 +596,7 @@ int main() {
 	prepareVertices(context, state, false);
 	prepareUniformBuffers(context, state);
 	setupDescriptorSetLayout(context, state);
+	prepareShaders(context, state);
 	preparePipelines(context, state);
 	setupDescriptorPool(context, state);
 	setupDescriptorSet(context, state);

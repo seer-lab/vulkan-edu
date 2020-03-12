@@ -187,8 +187,8 @@
     <ClInclude Include="LHVulkan.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="cube.frag" />
-    <None Include="cube.vert" />
+    <None Include="..\data\shaders\triangle\triangle.frag" />
+    <None Include="..\data\shaders\triangle\triangle.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
