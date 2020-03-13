@@ -14,7 +14,7 @@
 
 
 //Custom States depending on what is needed
-struct appState{
+struct appState {
 	struct vertices v;
 	// Index buffer
 	struct indices i;
@@ -58,7 +58,7 @@ float eyex, eyey, eyez;	// current user position
 double theta, phi;		// user's position  on a sphere centered on the object
 double r;
 
-void buildCommandBuffers(struct LHContext& context, struct appState& state){
+void buildCommandBuffers(struct LHContext& context, struct appState& state) {
 	VkResult U_ASSERT_ONLY res;
 
 	VkCommandBufferBeginInfo cmdBufInfo = {};
@@ -75,7 +75,7 @@ void buildCommandBuffers(struct LHContext& context, struct appState& state){
 	renderPassBeginInfo.clearValueCount = 2;
 	renderPassBeginInfo.pClearValues = clearValues;
 
-	for (int32_t i = 0; i < context.cmdBuffer.size(); ++i){
+	for (int32_t i = 0; i < context.cmdBuffer.size(); ++i) {
 		// Set target frame buffer
 		renderPassBeginInfo.framebuffer = context.frameBuffers[i];
 
@@ -108,7 +108,7 @@ void buildCommandBuffers(struct LHContext& context, struct appState& state){
 	}
 }
 
-void setupDescriptorPool(struct LHContext& context, struct appState& state){
+void setupDescriptorPool(struct LHContext& context, struct appState& state) {
 	VkResult U_ASSERT_ONLY res;
 
 	// We need to tell the API the number of max. requested descriptors per type
@@ -131,7 +131,7 @@ void setupDescriptorPool(struct LHContext& context, struct appState& state){
 	assert(res == VK_SUCCESS);
 }
 
-void setupDescriptorSetLayout(struct LHContext& context, struct appState& state){
+void setupDescriptorSetLayout(struct LHContext& context, struct appState& state) {
 	VkResult U_ASSERT_ONLY res;
 
 	// Setup layout of descriptors used in this example
@@ -166,7 +166,7 @@ void setupDescriptorSetLayout(struct LHContext& context, struct appState& state)
 	assert(res == VK_SUCCESS);
 }
 
-void setupDescriptorSet(struct LHContext& context, struct appState& state){
+void setupDescriptorSet(struct LHContext& context, struct appState& state) {
 	VkResult U_ASSERT_ONLY res;
 
 	// Allocate a new descriptor set from the global descriptor pool
@@ -176,7 +176,7 @@ void setupDescriptorSet(struct LHContext& context, struct appState& state){
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &state.descriptorSetLayout;
 
-	res =(vkAllocateDescriptorSets(context.device, &allocInfo, &state.descriptorSet));
+	res = (vkAllocateDescriptorSets(context.device, &allocInfo, &state.descriptorSet));
 	assert(res == VK_SUCCESS);
 
 	VkWriteDescriptorSet writeDescriptorSet = {};
@@ -193,7 +193,7 @@ void setupDescriptorSet(struct LHContext& context, struct appState& state){
 	vkUpdateDescriptorSets(context.device, 1, &writeDescriptorSet, 0, nullptr);
 }
 
-void preparePipelines(struct LHContext& context, struct appState& state){
+void preparePipelines(struct LHContext& context, struct appState& state) {
 	VkResult U_ASSERT_ONLY res;
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
@@ -297,14 +297,14 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 	pipelineCreateInfo.pDynamicState = &dynamicState;
 
 	// Create rendering pipeline using the specified states
-	res =(vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipeline));
+	res = (vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipeline));
 	assert(res == VK_SUCCESS);
 	// Shader modules are no longer needed once the graphics pipeline has been created
 	vkDestroyShaderModule(context.device, state.shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(context.device, state.shaderStages[1].module, nullptr);
 }
 
-void updateUniformBuffers(struct LHContext& context, struct appState& state){
+void updateUniformBuffers(struct LHContext& context, struct appState& state) {
 	VkResult U_ASSERT_ONLY res;
 	// Update matrices
 	state.uboVS.projectionMatrix = glm::perspective(glm::radians(60.0f), (float)context.width / (float)context.height, 0.1f, 256.0f);
@@ -327,7 +327,7 @@ void updateUniformBuffers(struct LHContext& context, struct appState& state){
 	vkUnmapMemory(context.device, state.uniformBufferVS.memory);
 }
 
-void prepareUniformBuffers(struct LHContext& context, struct appState& state){
+void prepareUniformBuffers(struct LHContext& context, struct appState& state) {
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
 	// Prepare and initialize a uniform buffer block containing shader uniforms
@@ -357,7 +357,7 @@ void prepareUniformBuffers(struct LHContext& context, struct appState& state){
 	updateUniformBuffers(context, state);
 }
 
-void prepareVertices(struct LHContext& context, struct appState& state,bool useStagingBuffers){
+void prepareVertices(struct LHContext& context, struct appState& state, bool useStagingBuffers) {
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
 
@@ -366,14 +366,14 @@ void prepareVertices(struct LHContext& context, struct appState& state,bool useS
 	VkMemoryRequirements memReqs;
 	void* data;
 
-	mapVerticiesToGPU(context, g_vb_solid_face_colors_Data, sizeof(g_vb_solid_face_colors_Data),state.v.buffer, state.v.memory);
+	mapVerticiesToGPU(context, g_vb_solid_face_colors_Data, sizeof(g_vb_solid_face_colors_Data), state.v.buffer, state.v.memory);
 
 	// Vertex input descriptions 
 	// Specifies the vertex input parameters for a pipeline
 
 	// Vertex input binding
 	// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
-	
+
 	state.vertexInputBinding.binding = 0;
 	state.vertexInputBinding.stride = sizeof(g_vb_solid_face_colors_Data[0]);
 	state.vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
@@ -396,7 +396,7 @@ void prepareVertices(struct LHContext& context, struct appState& state,bool useS
 	state.vertexInputAttributs[1].offset = 16;
 }
 
-void renderLoop(struct LHContext &context, struct appState& state){
+void renderLoop(struct LHContext& context, struct appState& state) {
 
 	while (!glfwWindowShouldClose(context.window)) {
 		glfwPollEvents();
@@ -421,15 +421,15 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		phi -= 0.1;
 		update = true;
 	}
-	if (key == GLFW_KEY_D && action == GLFW_PRESS){
+	if (key == GLFW_KEY_D && action == GLFW_PRESS) {
 		phi += 0.1;
 		update = true;
 	}
-	if (key == GLFW_KEY_W && action == GLFW_PRESS){
+	if (key == GLFW_KEY_W && action == GLFW_PRESS) {
 		theta += 0.1;
 		update = true;
 	}
-	if (key == GLFW_KEY_S && action == GLFW_PRESS){
+	if (key == GLFW_KEY_S && action == GLFW_PRESS) {
 		theta -= 0.1;
 		update = true;
 	}
@@ -440,7 +440,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 
 }
 
-void prepareShaders(struct LHContext &context, struct appState& state) {
+void prepareShaders(struct LHContext& context, struct appState& state) {
 	// Shaders
 
 	// Vertex shader

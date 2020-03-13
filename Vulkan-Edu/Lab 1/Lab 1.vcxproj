@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{5C6DD0E4-8DFF-48E8-AF16-FDC545694AF0}</ProjectGuid>
+    <ProjectGuid>{52AB15D6-A5F7-4777-8223-D50B08112B08}</ProjectGuid>
     <RootNamespace>Lab1</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -71,6 +71,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(SolutionDir)include;$(VULKAN_SDK)\include;$(VULKAN_SDK)\third-party\include;$(VULKAN_SDK)\glslang;$(IncludePath)</IncludePath>
+    <LibraryPath>$(VULKAN_SDK)\Third-Party\Bin;$(SolutionDir)\lib;$(VULKAN_SDK)\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -91,6 +93,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glslangd.lib;OGLCompilerd.lib;SPIRVd.lib;SPVRemapperd.lib;SPIRV-Tools-opt.lib;SPIRV-Tools.lib;HLSLd.lib;OSDependentd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -138,6 +141,53 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="glfw_m\src\cocoa_time.c" />
+    <ClCompile Include="glfw_m\src\context.c" />
+    <ClCompile Include="glfw_m\src\egl_context.c" />
+    <ClCompile Include="glfw_m\src\glx_context.c" />
+    <ClCompile Include="glfw_m\src\init.c" />
+    <ClCompile Include="glfw_m\src\input.c" />
+    <ClCompile Include="glfw_m\src\monitor.c" />
+    <ClCompile Include="glfw_m\src\osmesa_context.c" />
+    <ClCompile Include="glfw_m\src\posix_thread.c" />
+    <ClCompile Include="glfw_m\src\posix_time.c" />
+    <ClCompile Include="glfw_m\src\vulkan.c" />
+    <ClCompile Include="glfw_m\src\wgl_context.c" />
+    <ClCompile Include="glfw_m\src\win32_init.c" />
+    <ClCompile Include="glfw_m\src\win32_monitor.c" />
+    <ClCompile Include="glfw_m\src\win32_thread.c" />
+    <ClCompile Include="glfw_m\src\win32_time.c" />
+    <ClCompile Include="glfw_m\src\win32_window.c" />
+    <ClCompile Include="glfw_m\src\window.c" />
+    <ClCompile Include="glfw_m\src\x11_init.c" />
+    <ClCompile Include="glfw_m\src\x11_monitor.c" />
+    <ClCompile Include="glfw_m\src\x11_window.c" />
+    <ClCompile Include="glfw_m\src\xkb_unicode.c" />
+    <ClCompile Include="LHVulkan.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cube_data.h" />
+    <ClInclude Include="glfw_m\glfw_config.h" />
+    <ClInclude Include="glfw_m\include\GLFW_M\glfw3.h" />
+    <ClInclude Include="glfw_m\include\GLFW_M\glfw3native.h" />
+    <ClInclude Include="glfw_m\src\cocoa_platform.h" />
+    <ClInclude Include="glfw_m\src\egl_context.h" />
+    <ClInclude Include="glfw_m\src\glx_context.h" />
+    <ClInclude Include="glfw_m\src\internal.h" />
+    <ClInclude Include="glfw_m\src\nsgl_context.h" />
+    <ClInclude Include="glfw_m\src\osmesa_context.h" />
+    <ClInclude Include="glfw_m\src\posix_thread.h" />
+    <ClInclude Include="glfw_m\src\posix_time.h" />
+    <ClInclude Include="glfw_m\src\wgl_context.h" />
+    <ClInclude Include="glfw_m\src\win32_platform.h" />
+    <ClInclude Include="glfw_m\src\x11_platform.h" />
+    <ClInclude Include="glfw_m\src\xkb_unicode.h" />
+    <ClInclude Include="LHVulkan.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\shader.frag" />
+    <None Include="shaders\shader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

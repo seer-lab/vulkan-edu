@@ -80,7 +80,7 @@ struct vertices {
 	float* vBuffer;
 };
 
-struct indices{
+struct indices {
 	VkDeviceMemory memory;
 	VkBuffer buffer;
 	uint32_t count;
@@ -155,9 +155,9 @@ struct LHContext {
 VkResult init_global_extension_propertiesT(layer_properties& layer_props);
 VkResult globalLayerProperties(struct LHContext& context);
 void init_device_extension_names(struct LHContext& context);
-VkResult createInstance(struct LHContext &context ,std::string appName = "Sample App", std::string engineName = "Sample Engine", bool enableValidation = false);
+VkResult createInstance(struct LHContext& context, std::string appName = "Sample App", std::string engineName = "Sample Engine", bool enableValidation = false);
 VkResult createDeviceInfo(struct LHContext& context, bool selectGPU = false);
-void createWindowContext(struct LHContext &context,int w = 512, int h = 512);
+void createWindowContext(struct LHContext& context, int w = 512, int h = 512);
 VkResult createSwapChainExtention(struct LHContext& context);
 VkResult createDevice(struct LHContext& context);
 VkResult createSynchObject(struct LHContext& context);

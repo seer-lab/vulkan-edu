@@ -21,8 +21,8 @@
 #include <limits>
 
 //#define GLFW_INCLUDE_VULKAN
-#include <glfw_m/include/GLFW_M/glfw3.h>
-#include <glfw_m/include/GLFW_M/glfw3native.h>
+#include "glfw_m/include/GLFW_M/glfw3.h"
+#include "glfw_m/include/GLFW_M/glfw3native.h"
 
 #if _WIN32
 #include <Windows.h>
