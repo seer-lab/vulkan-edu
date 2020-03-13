@@ -181,6 +181,8 @@ VkResult mapVerticiesToGPU(struct LHContext& context, const void* vertexInput, u
 	VkBuffer& vertexBuffer, VkDeviceMemory& memory);
 VkResult mapIndiciesToGPU(struct LHContext& context, const void* indiciesInput, uint32_t dataSize,
 	VkBuffer& indexBuffer, VkDeviceMemory& memory);
+VkResult bindBufferToMem(struct LHContext& context, VkBufferCreateInfo& bufferInfo, VkFlags flags,
+	VkBuffer& inputBuffer, VkDeviceMemory& memory);
 void createClearColor(struct LHContext& context, VkClearValue* clear_values);
 void createRenderPassCreateInfo(struct LHContext& context, VkRenderPassBeginInfo& rp_begin);
 void createAttachmentDescription(struct LHContext& context, VkAttachmentDescription* attachments);

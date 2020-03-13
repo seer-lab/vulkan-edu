@@ -930,6 +930,33 @@ void draw(struct LHContext& context) {
 	assert(res == VK_SUCCESS);
 }
 
+VkResult bindBufferToMem(struct LHContext& context, VkBufferCreateInfo &bufferInfo, VkFlags flags,
+	VkBuffer& inputBuffer, VkDeviceMemory& memory) {
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
+
+	VkMemoryRequirements memReqs;
+	VkMemoryAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.pNext = nullptr;
+	allocInfo.allocationSize = 0;
+	allocInfo.memoryTypeIndex = 0;
+
+
+	// Create a new buffer
+	res = (vkCreateBuffer(context.device, &bufferInfo, nullptr, &inputBuffer));
+	assert(res == VK_SUCCESS);
+	vkGetBufferMemoryRequirements(context.device, inputBuffer, &memReqs);
+	allocInfo.allocationSize = memReqs.size;
+	pass = memory_type_from_properties(context, memReqs.memoryTypeBits,flags, &allocInfo.memoryTypeIndex);
+	assert(pass && "No mappable coherent memory");
+	res = (vkAllocateMemory(context.device, &allocInfo, nullptr, &(memory)));
+	assert(res == VK_SUCCESS);
+	res = (vkBindBufferMemory(context.device, inputBuffer, memory, 0));
+	assert(res == VK_SUCCESS);
+	return res;
+}
+
 void createShaderStage(struct LHContext &context, std::string filename, VkShaderStageFlagBits flag, VkPipelineShaderStageCreateInfo &shaderStage) {
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY retVal;

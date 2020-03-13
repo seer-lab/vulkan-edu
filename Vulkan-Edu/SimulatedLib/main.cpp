@@ -44,6 +44,8 @@ struct appState{
 	VkDescriptorSet descriptorSet;
 
 	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
+	VkVertexInputBindingDescription vertexInputBinding{};
+	std::array<VkVertexInputAttributeDescription, 2> vertexInputAttributs;
 };
 
 glm::vec3 rotation = glm::vec3();
@@ -272,41 +274,14 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 	multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 	multisampleState.pSampleMask = nullptr;
 
-	// Vertex input descriptions 
-	// Specifies the vertex input parameters for a pipeline
-
-	// Vertex input binding
-	// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
-	VkVertexInputBindingDescription vertexInputBinding = {};
-	vertexInputBinding.binding = 0;
-	vertexInputBinding.stride = sizeof(g_vb_solid_face_colors_Data[0]);
-	vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-	// Inpute attribute bindings describe shader attribute locations and memory layouts
-	std::array<VkVertexInputAttributeDescription, 2> vertexInputAttributs;
-	// These match the following shader layout
-	//	layout (location = 0) in vec3 inPos;
-	//	layout (location = 1) in vec3 inColor;
-	// Attribute location 0: Position
-	vertexInputAttributs[0].binding = 0;
-	vertexInputAttributs[0].location = 0;
-	// Position attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
-	vertexInputAttributs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	vertexInputAttributs[0].offset = 0;
-	// Attribute location 1: Color
-	vertexInputAttributs[1].binding = 0;
-	vertexInputAttributs[1].location = 1;
-	// Color attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
-	vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	vertexInputAttributs[1].offset = 16;
 
 	// Vertex input state used for pipeline creation
 	VkPipelineVertexInputStateCreateInfo vertexInputState = {};
 	vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputState.vertexBindingDescriptionCount = 1;
-	vertexInputState.pVertexBindingDescriptions = &vertexInputBinding;
+	vertexInputState.pVertexBindingDescriptions = &state.vertexInputBinding;
 	vertexInputState.vertexAttributeDescriptionCount = 2;
-	vertexInputState.pVertexAttributeDescriptions = vertexInputAttributs.data();
+	vertexInputState.pVertexAttributeDescriptions = state.vertexInputAttributs.data();
 
 	// Set pipeline shader stage info
 	pipelineCreateInfo.stageCount = static_cast<uint32_t>(state.shaderStages.size());
@@ -325,7 +300,7 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 
 	// Create rendering pipeline using the specified states
 	res =(vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipeline));
-
+	assert(res == VK_SUCCESS);
 	// Shader modules are no longer needed once the graphics pipeline has been created
 	vkDestroyShaderModule(context.device, state.shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(context.device, state.shaderStages[1].module, nullptr);
@@ -373,17 +348,9 @@ void prepareUniformBuffers(struct LHContext& context, struct appState& state){
 	bufferInfo.size = sizeof(state.uboVS);
 	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-	// Create a new buffer
-	res =(vkCreateBuffer(context.device, &bufferInfo, nullptr, &state.uniformBufferVS.buffer));
-	assert(res == VK_SUCCESS);
-	vkGetBufferMemoryRequirements(context.device, state.uniformBufferVS.buffer, &memReqs);
-	allocInfo.allocationSize = memReqs.size;
-	pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &allocInfo.memoryTypeIndex);
-	assert(pass && "No mappable coherent memory");	
-	res =(vkAllocateMemory(context.device, &allocInfo, nullptr, &(state.uniformBufferVS.memory)));
-	assert(res == VK_SUCCESS);
-	res =(vkBindBufferMemory(context.device, state.uniformBufferVS.buffer, state.uniformBufferVS.memory, 0));
-	assert(res == VK_SUCCESS);
+	bindBufferToMem(context, bufferInfo, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		state.uniformBufferVS.buffer, state.uniformBufferVS.memory);
+
 	// Store information in the uniform's descriptor that is used by the descriptor set
 	state.uniformBufferVS.descriptor.buffer = state.uniformBufferVS.buffer;
 	state.uniformBufferVS.descriptor.offset = 0;
@@ -403,28 +370,32 @@ void prepareVertices(struct LHContext& context, struct appState& state,bool useS
 
 	mapVerticiesToGPU(context, g_vb_solid_face_colors_Data, sizeof(g_vb_solid_face_colors_Data),state.v.buffer, state.v.memory);
 
+	// Vertex input descriptions 
+	// Specifies the vertex input parameters for a pipeline
 
-	//// Index buffer
-	//VkBufferCreateInfo indexbufferInfo = {};
-	//indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	//indexbufferInfo.size = indexBufferSize;
-	//indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	// Vertex input binding
+	// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
+	
+	state.vertexInputBinding.binding = 0;
+	state.vertexInputBinding.stride = sizeof(g_vb_solid_face_colors_Data[0]);
+	state.vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	//// Copy index data to a buffer visible to the host
-	//res = (vkCreateBuffer(context.device, &indexbufferInfo, nullptr, &state.i.buffer));
-	//assert(res == VK_SUCCESS);
-	//vkGetBufferMemoryRequirements(context.device, state.i.buffer, &memReqs);
-	//memAlloc.allocationSize = memReqs.size;
-	//pass = memory_type_from_properties(context, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memAlloc.memoryTypeIndex);
-	//assert(pass && "No mappable coherent memory");
-	//res = (vkAllocateMemory(context.device, &memAlloc, nullptr, &state.i.memory));
-	//assert(res == VK_SUCCESS);
-	//res = (vkMapMemory(context.device, state.i.memory, 0, indexBufferSize, 0, &data));
-	//assert(res == VK_SUCCESS);
-	//memcpy(data, indexBuffer.data(), indexBufferSize);
-	//vkUnmapMemory(context.device, state.i.memory);
-	//res = (vkBindBufferMemory(context.device, state.i.buffer, state.i.memory, 0));
-	//assert(res == VK_SUCCESS);
+	// Inpute attribute bindings describe shader attribute locations and memory layouts
+	// These match the following shader layout
+	//	layout (location = 0) in vec3 inPos;
+	//	layout (location = 1) in vec3 inColor;
+	// Attribute location 0: Position
+	state.vertexInputAttributs[0].binding = 0;
+	state.vertexInputAttributs[0].location = 0;
+	// Position attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
+	state.vertexInputAttributs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	state.vertexInputAttributs[0].offset = 0;
+	// Attribute location 1: Color
+	state.vertexInputAttributs[1].binding = 0;
+	state.vertexInputAttributs[1].location = 1;
+	// Color attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
+	state.vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	state.vertexInputAttributs[1].offset = 16;
 }
 
 void renderLoop(struct LHContext &context, struct appState& state){
