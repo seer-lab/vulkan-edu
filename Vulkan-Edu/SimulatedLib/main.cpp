@@ -42,9 +42,6 @@ struct appState{
 	VkPipeline pipeline;
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkDescriptorSet descriptorSet;
-	VkSemaphore presentCompleteSemaphore;
-	VkSemaphore renderCompleteSemaphore;
-	std::vector<VkFence> waitFences;
 
 	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
 };
@@ -58,34 +55,6 @@ float eyex, eyey, eyez;	// current user position
 
 double theta, phi;		// user's position  on a sphere centered on the object
 double r;
-
-
-void prepareSynchronizationPrimitives(struct LHContext& context, struct appState& state){
-	VkResult U_ASSERT_ONLY res;
-
-	// Semaphores (Used for correct command ordering)
-	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	semaphoreCreateInfo.pNext = nullptr;
-
-	// Semaphore used to ensures that image presentation is complete before starting to submit again
-	res = (vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &state.presentCompleteSemaphore));
-	assert(res == VK_SUCCESS);
-	// Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
-	res = (vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &state.renderCompleteSemaphore));
-	assert(res == VK_SUCCESS);
-
-	// Fences (Used to check draw command buffer completion)
-	VkFenceCreateInfo fenceCreateInfo = {};
-	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	// Create in signaled state so we don't wait on first render of each command buffer
-	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-	state.waitFences.resize(context.cmdBuffer.size());
-	for (auto& fence : state.waitFences){
-		res = (vkCreateFence(context.device, &fenceCreateInfo, nullptr, &fence));
-		assert(res == VK_SUCCESS);
-	}
-}
 
 void buildCommandBuffers(struct LHContext& context, struct appState& state){
 	VkResult U_ASSERT_ONLY res;
@@ -137,49 +106,6 @@ void buildCommandBuffers(struct LHContext& context, struct appState& state){
 		res = (vkEndCommandBuffer(context.cmdBuffer[i]));
 		assert(res == VK_SUCCESS);
 	}
-}
-
-void draw(struct LHContext& context, struct appState& state){
-	VkResult U_ASSERT_ONLY res;
-	// Get next image in the swap chain (back/front buffer)
-	res = vkAcquireNextImageKHR(context.device, context.swapChain, UINT64_MAX, state.presentCompleteSemaphore, VK_NULL_HANDLE, &context.currentBuffer);
-	assert(res == VK_SUCCESS);
-	// Use a fence to wait until the command buffer has finished execution before using it again
-	res = (vkWaitForFences(context.device, 1, &state.waitFences[context.currentBuffer], VK_TRUE, UINT64_MAX));
-	assert(res == VK_SUCCESS);
-	res = (vkResetFences(context.device, 1, &state.waitFences[context.currentBuffer]));
-	assert(res == VK_SUCCESS);
-
-	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-	VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	// The submit info structure specifices a command buffer queue submission batch
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = &waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = &state.presentCompleteSemaphore;							// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
-	submitInfo.pSignalSemaphores = &state.renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-	submitInfo.pCommandBuffers = &context.cmdBuffer[context.currentBuffer];					// Command buffers(s) to execute in this batch (submission)
-	submitInfo.commandBufferCount = 1;												// One command buffer
-
-	// Submit to the graphics queue passing a wait fence
-	res = (vkQueueSubmit(context.queue, 1, &submitInfo, state.waitFences[context.currentBuffer]));
-	assert(res == VK_SUCCESS);
-
-	VkPresentInfoKHR presentInfo = {};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	presentInfo.pNext = NULL;
-	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = &context.swapChain;
-	presentInfo.pImageIndices = &context.currentBuffer;
-	// Check if a wait semaphore has been specified to wait for before presenting the image
-	if (state.renderCompleteSemaphore != VK_NULL_HANDLE){
-		presentInfo.pWaitSemaphores = &state.renderCompleteSemaphore;
-		presentInfo.waitSemaphoreCount = 1;
-	}
-	res = vkQueuePresentKHR(context.queue, &presentInfo);
-	assert(res == VK_SUCCESS);
 }
 
 void setupDescriptorPool(struct LHContext& context, struct appState& state){
@@ -269,10 +195,6 @@ void setupDescriptorSet(struct LHContext& context, struct appState& state){
 
 void preparePipelines(struct LHContext& context, struct appState& state){
 	VkResult U_ASSERT_ONLY res;
-	// Create the graphics pipeline used in this example
-	// Vulkan uses the concept of rendering pipelines to encapsulate fixed states, replacing OpenGL's complex state machine
-	// A pipeline is then stored and hashed on the GPU making pipeline changes very fast
-	// Note: There are still a few dynamic states that are not directly part of the pipeline (but the info that they are used is)
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -284,7 +206,7 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 	// Construct the differnent states making up the pipeline
 
 	// Input assembly state describes how primitives are assembled
-	// This pipeline will assemble vertex data as a triangle lists (though we only use one triangle)
+	// This pipeline will assemble vertex data as a triangle lists
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {};
 	inputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -362,7 +284,7 @@ void preparePipelines(struct LHContext& context, struct appState& state){
 
 	// Inpute attribute bindings describe shader attribute locations and memory layouts
 	std::array<VkVertexInputAttributeDescription, 2> vertexInputAttributs;
-	// These match the following shader layout (see triangle.vert):
+	// These match the following shader layout
 	//	layout (location = 0) in vec3 inPos;
 	//	layout (location = 1) in vec3 inColor;
 	// Attribute location 0: Position
@@ -413,8 +335,6 @@ void updateUniformBuffers(struct LHContext& context, struct appState& state){
 	VkResult U_ASSERT_ONLY res;
 	// Update matrices
 	state.uboVS.projectionMatrix = glm::perspective(glm::radians(60.0f), (float)context.width / (float)context.height, 0.1f, 256.0f);
-
-	//state.uboVS.viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f));
 
 	state.uboVS.viewMatrix = glm::lookAt(glm::vec3(eyex, eyey, eyez),
 		glm::vec3(0.0f, 0.0f, 0.0f),
@@ -511,7 +431,7 @@ void renderLoop(struct LHContext &context, struct appState& state){
 
 	while (!glfwWindowShouldClose(context.window)) {
 		glfwPollEvents();
-		draw(context, state);
+		draw(context);
 		if (update) {
 			updateUniformBuffers(context, state);
 			update = false;
@@ -590,9 +510,9 @@ int main() {
 	createRenderPass(context);
 	createPipeLineCache(context);
 	createFrameBuffer(context);
+	prepareSynchronizationPrimitives(context);
 
 	//---> Implement our own functions
-	prepareSynchronizationPrimitives(context, state);
 	prepareVertices(context, state, false);
 	prepareUniformBuffers(context, state);
 	setupDescriptorSetLayout(context, state);

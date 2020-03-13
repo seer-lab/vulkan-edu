@@ -379,6 +379,8 @@ VkResult createSynchObject(struct LHContext& context) {
 	context.submitInfo.signalSemaphoreCount = 1;
 	context.submitInfo.pSignalSemaphores = &context.semaphores.renderComplete;
 
+	res = prepareSynchronizationPrimitives(context);
+
 	return res;
 }
 
@@ -856,6 +858,77 @@ VkResult mapIndiciesToGPU(struct LHContext& context, const void* indiciesInput, 
 	return res;
 }
 
+VkResult prepareSynchronizationPrimitives(struct LHContext& context) {
+	VkResult U_ASSERT_ONLY res;
+
+	// Semaphores (Used for correct command ordering)
+	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	semaphoreCreateInfo.pNext = nullptr;
+
+	// Semaphore used to ensures that image presentation is complete before starting to submit again
+	res = (vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &context.semaphores.presentComplete));
+	assert(res == VK_SUCCESS);
+	// Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
+	res = (vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &context.semaphores.renderComplete));
+	assert(res == VK_SUCCESS);
+
+	// Fences (Used to check draw command buffer completion)
+	VkFenceCreateInfo fenceCreateInfo = {};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	// Create in signaled state so we don't wait on first render of each command buffer
+	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	context.waitFences.resize(context.cmdBuffer.size());
+	for (auto& fence : context.waitFences) {
+		res = (vkCreateFence(context.device, &fenceCreateInfo, nullptr, &fence));
+		assert(res == VK_SUCCESS);
+	}
+
+	return res;
+}
+
+void draw(struct LHContext& context) {
+	VkResult U_ASSERT_ONLY res;
+	// Get next image in the swap chain (back/front buffer)
+	res = vkAcquireNextImageKHR(context.device, context.swapChain, UINT64_MAX, context.semaphores.presentComplete, VK_NULL_HANDLE, &context.currentBuffer);
+	assert(res == VK_SUCCESS);
+	// Use a fence to wait until the command buffer has finished execution before using it again
+	res = (vkWaitForFences(context.device, 1, &context.waitFences[context.currentBuffer], VK_TRUE, UINT64_MAX));
+	assert(res == VK_SUCCESS);
+	res = (vkResetFences(context.device, 1, &context.waitFences[context.currentBuffer]));
+	assert(res == VK_SUCCESS);
+
+	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+	VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// The submit info structure specifices a command buffer queue submission batch
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = &waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = &context.semaphores.presentComplete;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &context.semaphores.renderComplete;				// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+	submitInfo.pCommandBuffers = &context.cmdBuffer[context.currentBuffer];			// Command buffers(s) to execute in this batch (submission)
+	submitInfo.commandBufferCount = 1;												// One command buffer
+
+	// Submit to the graphics queue passing a wait fence
+	res = (vkQueueSubmit(context.queue, 1, &submitInfo, context.waitFences[context.currentBuffer]));
+	assert(res == VK_SUCCESS);
+
+	VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.pNext = NULL;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &context.swapChain;
+	presentInfo.pImageIndices = &context.currentBuffer;
+	// Check if a wait semaphore has been specified to wait for before presenting the image
+	if (context.semaphores.renderComplete != VK_NULL_HANDLE) {
+		presentInfo.pWaitSemaphores = &context.semaphores.renderComplete;
+		presentInfo.waitSemaphoreCount = 1;
+	}
+	res = vkQueuePresentKHR(context.queue, &presentInfo);
+	assert(res == VK_SUCCESS);
+}
 
 void createShaderStage(struct LHContext &context, std::string filename, VkShaderStageFlagBits flag, VkPipelineShaderStageCreateInfo &shaderStage) {
 	VkResult U_ASSERT_ONLY res;

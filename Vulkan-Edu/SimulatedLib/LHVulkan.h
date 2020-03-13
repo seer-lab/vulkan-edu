@@ -174,6 +174,7 @@ void setupRenderPass(struct LHContext& context, bool useStagingBuffers = false);
 void cleanUpResources(struct LHContext& context);
 void createScisscor(struct LHContext& context, VkCommandBuffer& cmd, VkRect2D& sc);
 void createViewports(struct LHContext& context, VkCommandBuffer& cmd, VkViewport& vp);
+VkResult prepareSynchronizationPrimitives(struct LHContext& context);
 //----------------------------> Optional Functions
 
 VkResult mapVerticiesToGPU(struct LHContext& context, const void* vertexInput, uint32_t dataSize,
@@ -183,6 +184,7 @@ VkResult mapIndiciesToGPU(struct LHContext& context, const void* indiciesInput, 
 void createClearColor(struct LHContext& context, VkClearValue* clear_values);
 void createRenderPassCreateInfo(struct LHContext& context, VkRenderPassBeginInfo& rp_begin);
 void createAttachmentDescription(struct LHContext& context, VkAttachmentDescription* attachments);
+void draw(struct LHContext& context);
 
 void createShaderStage(struct LHContext& context, std::string filename, VkShaderStageFlagBits flag, VkPipelineShaderStageCreateInfo& shaderStage);
 //----------------------------> Helper Function code
