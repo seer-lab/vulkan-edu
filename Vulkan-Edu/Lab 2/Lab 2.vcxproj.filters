@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Display GLFW_M">
+      <UniqueIdentifier>{5c2d2188-7a85-4c7b-b803-062af1a49c6f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{8ce2d63b-73e9-48e3-8571-607dd9479f18}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="LHVulkan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\cocoa_time.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\egl_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\glx_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\input.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\osmesa_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\posix_thread.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\posix_time.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\vulkan.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\wgl_context.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_thread.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_time.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\win32_window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\x11_init.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\x11_monitor.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\x11_window.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="glfw_m\src\xkb_unicode.c">
+      <Filter>Display GLFW_M</Filter>
+    </ClCompile>
+    <ClCompile Include="tiny_obj_loader.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cube_data.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LHVulkan.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\glfw_config.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\include\GLFW_M\glfw3.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\include\GLFW_M\glfw3native.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\cocoa_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\egl_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\glx_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\internal.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\nsgl_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\osmesa_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\posix_thread.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\posix_time.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\wgl_context.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\win32_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\x11_platform.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="glfw_m\src\xkb_unicode.h">
+      <Filter>Display GLFW_M</Filter>
+    </ClInclude>
+    <ClInclude Include="tiny_obj_loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\shader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\shader.vert">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
+</Project>

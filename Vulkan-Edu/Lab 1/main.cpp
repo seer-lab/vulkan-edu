@@ -444,11 +444,11 @@ void prepareShaders(struct LHContext& context, struct appState& state) {
 	// Shaders
 
 	// Vertex shader
-	createShaderStage(context, "./../data/shaders/triangle/triangle.vert", VK_SHADER_STAGE_VERTEX_BIT, state.shaderStages[0]);
+	createShaderStage(context, "./shaders/shader.vert", VK_SHADER_STAGE_VERTEX_BIT, state.shaderStages[0]);
 	assert(state.shaderStages[0].module != VK_NULL_HANDLE);
 
 	// Fragment shader
-	createShaderStage(context, "./../data/shaders/triangle/triangle.frag", VK_SHADER_STAGE_FRAGMENT_BIT, state.shaderStages[1]);
+	createShaderStage(context, "./shaders/shader.frag", VK_SHADER_STAGE_FRAGMENT_BIT, state.shaderStages[1]);
 	assert(state.shaderStages[1].module != VK_NULL_HANDLE);
 }
 

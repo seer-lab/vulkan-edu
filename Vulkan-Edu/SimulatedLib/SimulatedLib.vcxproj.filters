@@ -13,7 +13,7 @@
       <UniqueIdentifier>{a788e2ad-5a0c-498e-8b94-1e90ec9d86ab}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders">
-      <UniqueIdentifier>{116dac27-4282-458c-abab-222c86fcdf4b}</UniqueIdentifier>
+      <UniqueIdentifier>{8366153f-fe04-4be2-ae11-1b3ac31ed805}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -144,10 +144,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\data\shaders\triangle\triangle.frag">
+    <None Include="shaders\shader.frag">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="..\data\shaders\triangle\triangle.vert">
+    <None Include="shaders\shader.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
