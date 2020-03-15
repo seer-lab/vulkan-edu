@@ -20,8 +20,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{E9C9B1EF-70A6-40EA-B853-40F6DE77D09B}</ProjectGuid>
-    <RootNamespace>Lab4</RootNamespace>
+    <ProjectGuid>{433FF64C-C9CC-4167-B2A5-6D4D55EE1E7E}</ProjectGuid>
+    <RootNamespace>Lab5</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -141,8 +141,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\Lab 5\LHVulkan.h" />
-    <ClInclude Include="..\Lab 5\tiny_obj_loader.h" />
     <ClInclude Include="glfw_m\glfw_config.h" />
     <ClInclude Include="glfw_m\include\GLFW_M\glfw3.h" />
     <ClInclude Include="glfw_m\include\GLFW_M\glfw3native.h" />

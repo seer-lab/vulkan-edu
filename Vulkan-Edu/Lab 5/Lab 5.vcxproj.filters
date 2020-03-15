@@ -13,11 +13,11 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Display GLFW">
-      <UniqueIdentifier>{83eb7622-8e93-4154-8f85-d2e03a2d5c44}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shader">
-      <UniqueIdentifier>{66aca7b8-804a-4e07-96a2-60fa15cad024}</UniqueIdentifier>
+      <UniqueIdentifier>{844f1300-f017-4d28-96ab-25c3a2eec66a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Display GLFW">
+      <UniqueIdentifier>{c564bd2f-703f-4259-a933-fb194127a104}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -71,12 +71,6 @@
     </ClInclude>
     <ClInclude Include="glfw_m\src\xkb_unicode.h">
       <Filter>Display GLFW</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Lab 5\LHVulkan.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Lab 5\tiny_obj_loader.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
