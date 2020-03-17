@@ -102,8 +102,8 @@ double r;
 int triangles;			// number of triangles
 
 
-	// Set up a separate render pass for the offscreen frame buffer
-	// This is necessary as the offscreen frame buffer attachments use formats different to those from the example render pass
+// Set up a separate render pass for the offscreen frame buffer
+// This is necessary as the offscreen frame buffer attachments use formats different to those from the example render pass
 void prepareOffscreenRenderpass(struct LHContext &context, struct appState &state){
 	VkResult U_ASSERT_ONLY res;
 	
@@ -158,8 +158,8 @@ void prepareOffscreenRenderpass(struct LHContext &context, struct appState &stat
 	assert(res == VK_SUCCESS);
 }
 
-	// Setup the offscreen framebuffer for rendering the scene from light's point-of-view to
-	// The depth attachment of this framebuffer will then be used to sample from in the fragment shader of the shadowing pass
+// Setup the offscreen framebuffer for rendering the scene from light's point-of-view to
+// The depth attachment of this framebuffer will then be used to sample from in the fragment shader of the shadowing pass
 void prepareShadowFramebuffer(struct LHContext &context, struct appState&state) {
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
