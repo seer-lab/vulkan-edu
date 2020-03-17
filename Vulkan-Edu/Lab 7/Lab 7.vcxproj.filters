@@ -157,10 +157,16 @@
     <None Include="shaders\shader.vert">
       <Filter>Shader</Filter>
     </None>
-    <None Include="shaders\shaderCube.frag">
+    <None Include="shaderquad.frag">
       <Filter>Shader</Filter>
     </None>
-    <None Include="shaders\shaderCube.vert">
+    <None Include="shaderquad.vert">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shaders\shaderOffScree.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shaders\shaderOffscree.vert">
       <Filter>Shader</Filter>
     </None>
   </ItemGroup>

@@ -87,13 +87,13 @@ struct appState {
 
 	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
 	VkVertexInputBindingDescription vertexInputBinding[2];
-	std::array<VkVertexInputAttributeDescription, 2> vertexInputAttributs;
+	std::array<VkVertexInputAttributeDescription, 3> vertexInputAttributs;
 };
 
 glm::vec3 rotation = glm::vec3();
 glm::vec3 cameraPos = glm::vec3();
 glm::vec2 mousePos;
-
+bool filterPCF = true;
 bool update = false;
 float eyex, eyey, eyez;	// current user position
 
@@ -266,42 +266,93 @@ void buildCommandBuffers(struct LHContext& context, struct appState& state) {
 
 		res = (vkBeginCommandBuffer(context.cmdBuffer[i], &cmdBufInfo));
 		assert(res == VK_SUCCESS);
+		{
+			clearValues[0].depthStencil = { 1.0f, 0 };
 
-		vkCmdBeginRenderPass(context.cmdBuffer[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+			VkRenderPassBeginInfo renderPassBeginInfo = {};
+			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			renderPassBeginInfo.renderPass = state.offscreenPass.renderPass;
+			renderPassBeginInfo.framebuffer = state.offscreenPass.frameBuffer;
+			renderPassBeginInfo.renderArea.extent.width = state.offscreenPass.width;
+			renderPassBeginInfo.renderArea.extent.height = state.offscreenPass.height;
+			renderPassBeginInfo.clearValueCount = 1;
+			renderPassBeginInfo.pClearValues = clearValues;
 
-		// Update dynamic viewport state
-		VkViewport viewport = {};
-		createViewports(context, context.cmdBuffer[i], viewport);
+			vkCmdBeginRenderPass(context.cmdBuffer[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		// Update dynamic scissor state
-		VkRect2D scissor = {};
-		createScisscor(context, context.cmdBuffer[i], scissor);
+			// Update dynamic viewport state
+			VkViewport viewport = {};
+			createViewports(context, context.cmdBuffer[i], viewport);
 
-		vkCmdBindDescriptorSets(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelineLayout, 0, 1, &state.descriptorSet, 0, nullptr);
+			// Update dynamic scissor state
+			VkRect2D scissor = {};
+			createScisscor(context, context.cmdBuffer[i], scissor);
 
-		VkDeviceSize offsets[1] = { 0 };
-		//Plane
-#ifdef PLANE_MESH
-		vkCmdBindPipeline(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipeline);
-		vkCmdBindVertexBuffers(context.cmdBuffer[i], 0, 1, &state.v[0].buffer, offsets);
-		vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i[0].buffer, 0, VK_INDEX_TYPE_UINT16);
-		vkCmdDrawIndexed(context.cmdBuffer[i], state.i[0].count, 1, 0, 0, 0);
-#endif // PLANE_MESH
+			// Set depth bias (aka "Polygon offset")
+			// Required to avoid shadow mapping artefacts
+			vkCmdSetDepthBias(
+				context.cmdBuffer[i],
+				1.25f,
+				0.0f,
+				1.75f);
+			VkDeviceSize offsets[1] = { 0 };
 
-#ifdef OBJ_MESH
-		//Sphere
-		vkCmdBindPipeline(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelineSphere);
-		vkCmdBindVertexBuffers(context.cmdBuffer[i], 0, 1, &state.v[1].buffer, offsets);
-		vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i[1].buffer, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(context.cmdBuffer[i], state.i[1].count, 1, 0, 0, 0);
-#endif // OBJ_MESH
+			vkCmdBindPipeline(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.offscreen);
+			vkCmdBindDescriptorSets(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelineLayouts.offscreen, 0, 1, &state.descriptorSets.offscreen, 0, NULL);
 
+			vkCmdBindVertexBuffers(context.cmdBuffer[i], 0, 1, &state.v[0].buffer, offsets);
+			vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i[0].buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdDrawIndexed(context.cmdBuffer[i], state.i[0].count, 1, 0, 0, 0);
 
+			vkCmdEndRenderPass(context.cmdBuffer[i]);
+		}
+		{
+			{
+				clearValues[1].depthStencil = { 1.0f, 0 };
 
-		vkCmdEndRenderPass(context.cmdBuffer[i]);
+				VkRenderPassBeginInfo renderPassBeginInfo = {};
+				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+				renderPassBeginInfo.renderPass = context.render_pass;
+				renderPassBeginInfo.framebuffer = context.frameBuffers[i];
+				renderPassBeginInfo.renderArea.extent.width = context.width;
+				renderPassBeginInfo.renderArea.extent.height = context.height;
+				renderPassBeginInfo.clearValueCount = 2;
+				renderPassBeginInfo.pClearValues = clearValues;
 
-		res = (vkEndCommandBuffer(context.cmdBuffer[i]));
-		assert(res == VK_SUCCESS);
+				vkCmdBeginRenderPass(context.cmdBuffer[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+				// Update dynamic viewport state
+				VkViewport viewport = {};
+				createViewports(context, context.cmdBuffer[i], viewport);
+
+				// Update dynamic scissor state
+				VkRect2D scissor = {};
+				createScisscor(context, context.cmdBuffer[i], scissor);
+				VkDeviceSize offsets[1] = { 0 };
+
+				// Visualize shadow map
+				if (true) {
+					vkCmdBindDescriptorSets(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelineLayouts.quad, 0, 1, &state.descriptorSet, 0, NULL);
+					vkCmdBindPipeline(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.quad);
+					vkCmdBindVertexBuffers(context.cmdBuffer[i], 0, 1, &state.v[1].buffer, offsets);
+					vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i[1].buffer, 0, VK_INDEX_TYPE_UINT32);
+					vkCmdDrawIndexed(context.cmdBuffer[i], state.i[1].count, 1, 0, 0, 0);
+				}
+
+				// 3D scene
+				vkCmdBindDescriptorSets(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelineLayouts.quad, 0, 1, &state.descriptorSets.scene, 0, NULL);
+				vkCmdBindPipeline(context.cmdBuffer[i], VK_PIPELINE_BIND_POINT_GRAPHICS, (filterPCF) ? state.pipelines.sceneShadowPCF : state.pipelines.sceneShadow);
+
+				vkCmdBindVertexBuffers(context.cmdBuffer[i], 0, 1, &state.v[0].buffer, offsets);
+				vkCmdBindIndexBuffer(context.cmdBuffer[i], state.i[0].buffer, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdDrawIndexed(context.cmdBuffer[i], state.i[0].count, 1, 0, 0, 0);
+
+				vkCmdEndRenderPass(context.cmdBuffer[i]);
+			}
+
+			res = (vkEndCommandBuffer(context.cmdBuffer[i]));
+			assert(res == VK_SUCCESS);
+		}
 	}
 }
 
@@ -312,7 +363,7 @@ void setupDescriptorPool(struct LHContext& context, struct appState& state) {
 	VkDescriptorPoolSize typeCounts[2];
 	// This example only uses one descriptor type (uniform buffer) and only requests one descriptor of this type
 	typeCounts[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	typeCounts[0].descriptorCount = 1;
+	typeCounts[0].descriptorCount = 6;
 
 	typeCounts[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	typeCounts[1].descriptorCount = 4;
@@ -350,7 +401,7 @@ void setupDescriptorSetLayout(struct LHContext& context, struct appState& state)
 		layout (set = 0, binding = 0) uniform uboVS ...
 
 	FS :
-		layout (set = 0, binding = 1) uniform uboFS ...;
+		layout (set = 0, binding = 1) uniform imagesampler ...;
 
 	*/
 
@@ -416,7 +467,7 @@ void setupDescriptorSet(struct LHContext& context, struct appState& state) {
 	writeDescriptorSet[0].dstSet = state.descriptorSet;
 	writeDescriptorSet[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	writeDescriptorSet[0].dstBinding = 0;
-	writeDescriptorSet[0].pBufferInfo = &state.uniformBufferVS[0].descriptor;
+	writeDescriptorSet[0].pBufferInfo = &state.uniformBufferVS[1].descriptor;
 	writeDescriptorSet[0].descriptorCount = 1;
 		
 		
@@ -439,7 +490,7 @@ void setupDescriptorSet(struct LHContext& context, struct appState& state) {
 	writeDescriptorSet[0].dstSet = state.descriptorSets.offscreen;
 	writeDescriptorSet[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	writeDescriptorSet[0].dstBinding = 0;
-	writeDescriptorSet[0].pBufferInfo = &state.uniformBufferVS[1].descriptor;
+	writeDescriptorSet[0].pBufferInfo = &state.uniformBufferVS[2].descriptor;
 	writeDescriptorSet[0].descriptorCount = 1;
 
 	vkUpdateDescriptorSets(context.device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL);
@@ -457,7 +508,7 @@ void setupDescriptorSet(struct LHContext& context, struct appState& state) {
 	writeDescriptorSet[0].dstSet = state.descriptorSets.scene;
 	writeDescriptorSet[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	writeDescriptorSet[0].dstBinding = 0;
-	writeDescriptorSet[0].pBufferInfo = &state.uniformBufferVS[2].descriptor;
+	writeDescriptorSet[0].pBufferInfo = &state.uniformBufferVS[0].descriptor;
 	writeDescriptorSet[0].descriptorCount = 1;
 
 
@@ -556,7 +607,7 @@ void preparePipelines(struct LHContext& context, struct appState& state) {
 	vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputState.vertexBindingDescriptionCount = 1;
 	vertexInputState.pVertexBindingDescriptions = &state.vertexInputBinding[0];
-	vertexInputState.vertexAttributeDescriptionCount = 2;
+	vertexInputState.vertexAttributeDescriptionCount = 3;
 	vertexInputState.pVertexAttributeDescriptions = state.vertexInputAttributs.data();
 
 	// Set pipeline shader stage info
@@ -565,7 +616,7 @@ void preparePipelines(struct LHContext& context, struct appState& state) {
 
 	// Assign the pipeline states to the pipeline creation info structure
 	pipelineCreateInfo.pVertexInputState = &vertexInputState;
-	pInputAssemblyState = &inputAssemblyState;
+	pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
 	pipelineCreateInfo.pRasterizationState = &rasterizationState;
 	pipelineCreateInfo.pColorBlendState = &colorBlendState;
 	pipelineCreateInfo.pMultisampleState = &multisampleState;
@@ -577,7 +628,7 @@ void preparePipelines(struct LHContext& context, struct appState& state) {
 	//Takes care of the QUAD
 	rasterizationState.cullMode = VK_CULL_MODE_NONE;
 	// Vertex shader
-	createShaderStage(context, "./shaders/shadequad.vert", VK_SHADER_STAGE_VERTEX_BIT, state.shaderStages[0]);
+	createShaderStage(context, "./shaders/shaderquad.vert", VK_SHADER_STAGE_VERTEX_BIT, state.shaderStages[0]);
 	assert(state.shaderStages[0].module != VK_NULL_HANDLE);
 
 	// Fragment shader
@@ -589,11 +640,11 @@ void preparePipelines(struct LHContext& context, struct appState& state) {
 	pipelineCreateInfo.pVertexInputState = &emptyInputState;
 
 	// Create rendering pipeline using the specified states
-	res = (vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipeline));
+	res = (vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipelines.quad));
 	assert(res == VK_SUCCESS);
 
-	vertexInputState.pVertexBindingDescriptions = &state.vertexInputBinding[1];
 	pipelineCreateInfo.pVertexInputState = &vertexInputState;
+	rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 
 	// Vertex shader
 	createShaderStage(context, "./shaders/shader.vert", VK_SHADER_STAGE_VERTEX_BIT, state.shaderStages[0]);
@@ -603,8 +654,46 @@ void preparePipelines(struct LHContext& context, struct appState& state) {
 	createShaderStage(context, "./shaders/shader.frag", VK_SHADER_STAGE_FRAGMENT_BIT, state.shaderStages[1]);
 	assert(state.shaderStages[1].module != VK_NULL_HANDLE);
 
-	// Create rendering pipeline using the specified states
-	res = (vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipelineSphere));
+	uint32_t enablePCF = 0;
+	VkSpecializationMapEntry specializationMapEntry = {};
+	specializationMapEntry.constantID = 0;
+	specializationMapEntry.offset = 0;
+	specializationMapEntry.size = sizeof(uint32_t);
+	VkSpecializationInfo specializationInfo = {};
+	specializationInfo.mapEntryCount = 1;
+	specializationInfo.pMapEntries = &specializationMapEntry;
+	specializationInfo.dataSize = sizeof(uint32_t);
+	specializationInfo.pData = &enablePCF;
+	state.shaderStages[1].pSpecializationInfo = &specializationInfo;
+	// No filtering
+	res = (vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipelines.sceneShadow));
+	assert(res == VK_SUCCESS);
+	// PCF filtering
+	enablePCF = 1;
+	res = (vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipelines.sceneShadowPCF));
+	assert(res == VK_SUCCESS);
+
+	// Offscreen pipeline (vertex shader only)
+	createShaderStage(context, "./shaders/shaderOffscree.vert", VK_SHADER_STAGE_VERTEX_BIT, state.shaderStages[0]);
+	assert(state.shaderStages[0].module != VK_NULL_HANDLE);
+	pipelineCreateInfo.stageCount = 1;
+	// No blend attachment states (no color attachments used)
+	colorBlendState.attachmentCount = 0;
+	// Cull front faces
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	// Enable depth bias
+	rasterizationState.depthBiasEnable = VK_TRUE;
+	// Add depth bias to dynamic state, so we can change it at runtime
+	dynamicStateEnables.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
+	dynamicState = {};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.pDynamicStates = dynamicStateEnables.data();
+	dynamicState.dynamicStateCount = dynamicStateEnables.size();
+	dynamicState.flags = 0;
+
+	pipelineCreateInfo.layout = state.pipelineLayouts.offscreen;
+	pipelineCreateInfo.renderPass = state.offscreenPass.renderPass;
+	res = (vkCreateGraphicsPipelines(context.device, context.pipelineCache, 1, &pipelineCreateInfo, nullptr, &state.pipelines.offscreen));
 	assert(res == VK_SUCCESS);
 }
 
@@ -622,11 +711,11 @@ void updateUniformBuffers(struct LHContext& context, struct appState& state) {
 	state.uboOffscreenVS.depthMVP = depthProjectionMatrix * depthViewMatrix * depthModelMatrix;
 
 	// Map uniform buffer and update it
-	res = (vkMapMemory(context.device, state.uniformBufferVS[1].memory, 0, sizeof(state.uboOffscreenVS), 0, (void**)&pData));
+	res = (vkMapMemory(context.device, state.uniformBufferVS[2].memory, 0, sizeof(state.uboOffscreenVS), 0, (void**)&pData));
 	memcpy(pData, &state.uboOffscreenVS, sizeof(state.uboOffscreenVS));
 	// Unmap after data has been copied
 	// Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the GPU
-	vkUnmapMemory(context.device, state.uniformBufferVS[1].memory);
+	vkUnmapMemory(context.device, state.uniformBufferVS[2].memory);
 
 	float AR = (float)context.height / (float)context.width;
 
@@ -646,11 +735,11 @@ void updateUniformBuffers(struct LHContext& context, struct appState& state) {
 
 
 	// Map uniform buffer and update it
-	res = (vkMapMemory(context.device, state.uniformBufferVS[2].memory, 0, sizeof(state.uboVSscene), 0, (void**)&pData));
+	res = (vkMapMemory(context.device, state.uniformBufferVS[0].memory, 0, sizeof(state.uboVSscene), 0, (void**)&pData));
 	memcpy(pData, &state.uboVSscene, sizeof(state.uboVSscene));
 	// Unmap after data has been copied
 	// Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the GPU
-	vkUnmapMemory(context.device, state.uniformBufferVS[2].memory);
+	vkUnmapMemory(context.device, state.uniformBufferVS[0].memory);
 
 }
 
@@ -670,7 +759,7 @@ void prepareUniformBuffers(struct LHContext& context, struct appState& state) {
 	allocInfo.memoryTypeIndex = 0;
 
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof(state.uboVSquad);
+	bufferInfo.size = sizeof(state.uboVSscene);
 	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
 	bindBufferToMem(context, bufferInfo, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -679,11 +768,11 @@ void prepareUniformBuffers(struct LHContext& context, struct appState& state) {
 	// Store information in the uniform's descriptor that is used by the descriptor set
 	state.uniformBufferVS[0].descriptor.buffer = state.uniformBufferVS[0].buffer;
 	state.uniformBufferVS[0].descriptor.offset = 0;
-	state.uniformBufferVS[0].descriptor.range = sizeof(state.uboVSquad);
+	state.uniformBufferVS[0].descriptor.range = sizeof(state.uboVSscene);
 
 	bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof(state.uboOffscreenVS);
+	bufferInfo.size = sizeof(state.uboVSquad);
 	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
 	bindBufferToMem(context, bufferInfo, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -692,11 +781,11 @@ void prepareUniformBuffers(struct LHContext& context, struct appState& state) {
 	// Store information in the uniform's descriptor that is used by the descriptor set
 	state.uniformBufferVS[1].descriptor.buffer = state.uniformBufferVS[1].buffer;
 	state.uniformBufferVS[1].descriptor.offset = 0;
-	state.uniformBufferVS[1].descriptor.range = sizeof(state.uboOffscreenVS);
+	state.uniformBufferVS[1].descriptor.range = sizeof(state.uboVSquad);
 
 	bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof(state.uboVSscene);
+	bufferInfo.size = sizeof(state.uboOffscreenVS);
 	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
 	bindBufferToMem(context, bufferInfo, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -705,114 +794,27 @@ void prepareUniformBuffers(struct LHContext& context, struct appState& state) {
 	// Store information in the uniform's descriptor that is used by the descriptor set
 	state.uniformBufferVS[2].descriptor.buffer = state.uniformBufferVS[2].buffer;
 	state.uniformBufferVS[2].descriptor.offset = 0;
-	state.uniformBufferVS[2].descriptor.range = sizeof(state.uboVSscene);
+	state.uniformBufferVS[2].descriptor.range = sizeof(state.uboOffscreenVS);
 
 	updateUniformBuffers(context, state);
 }
 
-#ifdef PLANE_MESH
-void prepareVerticesPlane(struct LHContext& context, struct appState& state, bool useStagingBuffers) {
-	VkResult U_ASSERT_ONLY res;
-	bool U_ASSERT_ONLY pass;
-
-	VkBufferCreateInfo buf_info = {};
-	VkMemoryRequirements mem_reqs;
-	VkMemoryAllocateInfo alloc_info = {};
-	uint8_t* pData;
-
-	int i;
-	int k;
-
-	float vertices[8][4] = {
-		{ -3.0, -1.0, -3.0, 1.0 },		//0
-		{ -3.0, -1.0, 3.0, 1.0 },		//1
-		{ -1.0, 1.0, -1.0, 1.0 },		//2
-		{ -1.0, 1.0, 1.0, 1.0 },		//3
-		{ 3.0, -1.0, -3.0, 1.0 },		//4
-		{ 3.0, -1.0, 3.0, 1.0 },		//5
-		{ 1.0, 1.0, -1.0, 1.0 },		//6
-		{ 1.0, 1.0, 1.0, 1.0 }			//7
-	};
-
-	float normals[8][3] = {
-			{ 0.0, 1.0, 0.0 },			//0
-			{ 0.0, 1.0, 0.0 },			//1
-			{ -1.0, 1.0, -1.0 },			//2
-			{ -1.0, 1.0, 1.0 },				//3
-			{ 0.0, 1.0, 0.0 },			//4
-			{ 0.0, 1.0, 0.0 },				//5
-			{ 1.0, 1.0, -1.0 },				//6
-			{ 1.0, 1.0, 1.0 }				//7
-	};
-
-	uint16_t indexes[6] = { /*0, 1, 3, 0, 2, 3*/
-		0, 4, 5, 0, 1, 5 };
-
-
-	state.vBuffer = new float[7 * 8];
-	k = 0;
-	for (i = 0; i < 8; i++) {
-		state.vBuffer[k++] = vertices[i][0];
-		state.vBuffer[k++] = vertices[i][1];
-		state.vBuffer[k++] = vertices[i][2];
-		state.vBuffer[k++] = vertices[i][3];
-		state.vBuffer[k++] = normals[i][0];
-		state.vBuffer[k++] = normals[i][1];
-		state.vBuffer[k++] = normals[i][2];
-	}
-
-	uint32_t dataSize = 7 * 8 * sizeof(float);
-	uint32_t dataStride = 7 * sizeof(float);
-
-	state.i[0].count = 6;
-
-	mapIndiciesToGPU(context, indexes, sizeof(indexes), state.i[0].buffer, state.i[0].memory);
-	mapVerticiesToGPU(context, state.vBuffer, dataSize, state.v[0].buffer, state.v[0].memory);
-
-	//// Vertex input descriptions 
-	//// Specifies the vertex input parameters for a pipeline
-
-	//// Vertex input binding
-	//// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
-
-	state.vertexInputBinding[0].binding = 0;
-	state.vertexInputBinding[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	state.vertexInputBinding[0].stride = dataStride;
-
-
-	// Inpute attribute bindings describe shader attribute locations and memory layouts
-	// These match the following shader layout
-	//	layout (location = 0) in vec3 inPos;
-	//	layout (location = 1) in vec3 inNormal;
-	// Attribute location 0: Position
-	//// Attribute location 1: Normal
-	state.vertexInputAttributs[0].binding = 0;
-	state.vertexInputAttributs[0].location = 0;
-	state.vertexInputAttributs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	state.vertexInputAttributs[0].offset = 0;
-	state.vertexInputAttributs[1].binding = 0;
-	state.vertexInputAttributs[1].location = 1;
-	state.vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	state.vertexInputAttributs[1].offset = sizeof(float);
-
-
-	std::cout << sizeof(float) << std::endl;
-}
-#endif
 
 #ifdef OBJ_MESH
-void prepareVertices(struct LHContext& context, struct appState& state, bool useStagingBuffers) {
+void prepareVertices(struct LHContext& context, struct appState& state, std::string filepath,int index,bool useStagingBuffers) {
 	VkResult U_ASSERT_ONLY res;
 	bool U_ASSERT_ONLY pass;
 
 	float* vertices;
 	float* normals;
+	float* textcoord;
 	uint32_t* indices;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
 	int nv;
 	int nn;
 	int ni;
+	int nt;
 	int i;
 
 	VkBufferCreateInfo buf_info = {};
@@ -820,7 +822,7 @@ void prepareVertices(struct LHContext& context, struct appState& state, bool use
 	VkMemoryAllocateInfo alloc_info = {};
 	uint8_t* pData;
 
-	std::string err = tinyobj::LoadObj(shapes, materials, "angryteapot.obj", 0);
+	std::string err = tinyobj::LoadObj(shapes, materials, filepath.c_str(), 0);
 
 	if (!err.empty()) {
 		std::cerr << err << std::endl;
@@ -852,8 +854,16 @@ void prepareVertices(struct LHContext& context, struct appState& state, bool use
 		indices[i] = shapes[0].mesh.indices[i];
 	}
 
+	/*  Retrieve the textcoord */
 
-	state.vBuffer = new float[nv + nn];
+	nt = (int)shapes[0].mesh.texcoords.size();
+	textcoord = new float[nt];
+	for (i = 0; i < nt; i++) {
+		textcoord[i] = shapes[0].mesh.texcoords[i];
+	}
+
+
+	state.vBuffer = new float[nv + nn + nt];
 	int k = 0;
 	for (i = 0; i < nv / 3; i++) {
 		state.vBuffer[k++] = vertices[3 * i];
@@ -862,15 +872,17 @@ void prepareVertices(struct LHContext& context, struct appState& state, bool use
 		state.vBuffer[k++] = normals[3 * i];
 		state.vBuffer[k++] = normals[3 * i + 1];
 		state.vBuffer[k++] = normals[3 * i + 2];
+		state.vBuffer[k++] = textcoord[2 * i];
+		state.vBuffer[k++] = textcoord[2 * i + 1];
 	}
 
-	uint32_t dataSize = (nv + nn) * sizeof(state.vBuffer[0]);
-	uint32_t dataStride = 6 * (sizeof(float));
+	uint32_t dataSize = (nv + nn + nt) * sizeof(state.vBuffer[0]);
+	uint32_t dataStride = 8 * (sizeof(float));
 
-	state.i[1].count = ni;
+	state.i[index].count = ni;
 
-	mapIndiciesToGPU(context, indices, sizeof(indices[0]) * ni, state.i[1].buffer, state.i[1].memory);
-	mapVerticiesToGPU(context, state.vBuffer, dataSize, state.v[1].buffer, state.v[1].memory);
+	mapIndiciesToGPU(context, indices, sizeof(indices[0]) * ni, state.i[index].buffer, state.i[index].memory);
+	mapVerticiesToGPU(context, state.vBuffer, dataSize, state.v[index].buffer, state.v[index].memory);
 
 	//// Vertex input descriptions 
 	//// Specifies the vertex input parameters for a pipeline
@@ -878,9 +890,9 @@ void prepareVertices(struct LHContext& context, struct appState& state, bool use
 	//// Vertex input binding
 	//// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
 
-	state.vertexInputBinding[1].binding = 0;
-	state.vertexInputBinding[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	state.vertexInputBinding[1].stride = dataStride;
+	state.vertexInputBinding[0].binding = 0;
+	state.vertexInputBinding[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	state.vertexInputBinding[0].stride = dataStride;
 
 
 	// Inpute attribute bindings describe shader attribute locations and memory layouts
@@ -897,6 +909,10 @@ void prepareVertices(struct LHContext& context, struct appState& state, bool use
 	state.vertexInputAttributs[1].location = 1;
 	state.vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 	state.vertexInputAttributs[1].offset = sizeof(float);
+	state.vertexInputAttributs[2].binding = 0;
+	state.vertexInputAttributs[2].location = 2;
+	state.vertexInputAttributs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+	state.vertexInputAttributs[2].offset = 2*sizeof(float);
 
 }
 #endif // OBJ_MESH
@@ -975,8 +991,8 @@ int main() {
 
 	//---> Implement our own functions
 	prepareShadowFramebuffer(context, state);
-	prepareVertices(context, state, false);
-	prepareVerticesPlane(context, state, false);
+	prepareVertices(context, state, "angryteapot.obj",0,false);
+	prepareVertices(context, state, "plane.obj",1,false);
 	prepareUniformBuffers(context, state);
 	setupDescriptorSetLayout(context, state);
 	preparePipelines(context, state);

@@ -187,10 +187,12 @@
     <ClCompile Include="tiny_obj_loader.cc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaderquad.frag" />
+    <None Include="shaderquad.vert" />
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
-    <None Include="shaders\shaderCube.frag" />
-    <None Include="shaders\shaderCube.vert" />
+    <None Include="shaders\shaderOffScree.frag" />
+    <None Include="shaders\shaderOffscree.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
