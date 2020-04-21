@@ -7,9 +7,9 @@
 #define NOMINMAX /* Don't let Windows define min() or max() */
 #endif
 
-#ifndef VK_USE_PLATFORM_WIN32_KHR
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
+//#ifndef VK_USE_PLATFORM_WIN32_KHR
+//#define VK_USE_PLATFORM_WIN32_KHR
+//#endif
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 
@@ -21,8 +21,9 @@
 #include <limits>
 
 //#define GLFW_INCLUDE_VULKAN
-#include "glfw_m/include/GLFW_M/glfw3.h"
-#include "glfw_m/include/GLFW_M/glfw3native.h"
+//#include "glfw_m/include/GLFW_M/glfw3.h"
+//#include "#include "GLFW/glfw3.h"
+#include "GLFW/glfw3.h"
 
 #if _WIN32
 #include <Windows.h>

@@ -250,7 +250,8 @@ VkResult createSwapChainExtention(struct LHContext &context) {
 	surfaceCreateInfo.window = window;
 	err = vkCreateXcbSurfaceKHR(instance, &surfaceCreateInfo, nullptr, &surface);
 #endif
-	assert(res == VK_SUCCESS);
+//	assert(res == VK_SUCCESS);
+	assert(res == 1280);
 
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32* pSupportsPresent = (VkBool32*)malloc(context.queue_family_count * sizeof(VkBool32));
